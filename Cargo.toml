@@ -1,0 +1,21 @@
+[package]
+name = "giay-rs"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+resolver = "3"
+members = [".", "api", "entity", "migration"]
+
+[workspace.dependencies]
+sea-orm = {
+  version = "~2.0.0-rc",
+  features = ["debug-print", "runtime-tokio-rustls", "sqlx-postgres"]
+}
+
+[dependencies]
+anyhow = "1"
+giay-api = { path = "api" }
+migration = { path = "migration" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

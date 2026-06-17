@@ -1,0 +1,30 @@
+[package]
+name = "giay-api"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "giay_api"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+argon2 = "0.5"
+rand_core = { version = "0.6", features = ["getrandom", "std"] }
+axum = "0.8"
+axum-extra = { version = "0.12.6", features = ["typed-header"] }
+chrono = "0.4"
+dotenvy = "0.15"
+entity = { path = "../entity" }
+jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
+migration = { path = "../migration" }
+sea-orm = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.7", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.23", features = ["v4"] }
+thiserror = "2"
