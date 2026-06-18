@@ -15,7 +15,9 @@ sea-orm = {
 }
 
 [dependencies]
+aide = { version = "0.15.1", features = ["axum", "axum-json", "swagger"] }
 anyhow = "1"
 giay-api = { path = "api" }
 migration = { path = "migration" }
+schemars = { version = "1.2.1", features = ["uuid1", "chrono04"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
