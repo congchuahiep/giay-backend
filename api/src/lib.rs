@@ -11,6 +11,8 @@ use std::net::SocketAddr;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::info;
 use tracing_subscriber::{EnvFilter, fmt};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::core::config::Config;
 use crate::core::state::AppState;
@@ -34,7 +36,11 @@ pub async fn run() -> anyhow::Result<()> {
         jwt_secret: config.jwt_secret,
     };
 
+    let mut openapi = crate::core::swagger::ApiDoc::openapi();
+    openapi.merge(crate::auth::swagger::AuthApiDoc::openapi());
+
     let app = Router::new()
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", openapi))
         .route("/health", get(health))
         .nest("/api/auth", auth::router())
         .nest("/api/user", user::router())

@@ -7,5 +7,5 @@ pub fn router() -> Router<AppState> {
         .route("/login", post(handler::login))
         .route("/register", post(handler::register))
         .route("/refresh-token", post(handler::refresh_token))
-        .route("/revoke-token", post(handler::revoke_token))
+        .route("/revoke-token/{session_id}", post(handler::revoke_token))
 }
