@@ -8,7 +8,7 @@ impl AsStr for UserRole {
     fn as_str(&self) -> String {
         match self {
             UserRole::Admin => "admin".to_string(),
-            UserRole::User => "User".to_string(),
+            UserRole::User => "user".to_string(),
         }
     }
 }
