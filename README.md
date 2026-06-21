@@ -2,6 +2,13 @@
 
 Rust workspace for the Giấy backend using Axum and SeaORM.
 
+> [!IMPORTANT]
+> **Dành cho mọi lập trình viên và AI Agent:**
+> Vui lòng luôn đọc các tài liệu sau trước khi đóng góp mã nguồn:
+> - **[Kiến trúc tổng thể (Architecture)](./docs/architecture.md)**
+> - **[Hướng dẫn sử dụng SeaORM](./docs/seaorm.md)**
+> - **[Kế hoạch triển khai Tenant-Based](./docs/tenant-based-plan.md)**
+
 ## Naming convention
 
 - Tables use plural `snake_case` names, for example `users`, `workspaces`, `workspace_users`, and `pages`.
@@ -29,12 +36,6 @@ cargo run -p migration -- up
 cargo run
 ```
 
-The app currently exposes:
-
-```text
-GET /health
-```
-
 ## Generate entities later
 
 After applying migrations, generate SeaORM entities with:
@@ -42,8 +43,9 @@ After applying migrations, generate SeaORM entities with:
 ```sh
 sea-orm-cli generate entity \
   --database-url postgres://postgres:postgres@localhost:5432/giay \
-  --output-dir entity/src \
-  --entity-format dense
+  --output-dir entity/src/models \
+  --entity-format dense \
+  --with-serde both
 ```
 
 The `entity` crate is intentionally a placeholder until generated entities are added.

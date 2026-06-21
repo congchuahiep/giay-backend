@@ -2,3 +2,5 @@
 
 pub use super::user::Entity as User;
 pub use super::user_session::Entity as UserSession;
+pub use super::workspace::Entity as Workspace;
+pub use super::workspace_membership::Entity as WorkspaceMembership;

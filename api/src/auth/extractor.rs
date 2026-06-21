@@ -3,6 +3,7 @@ use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
 };
+use entity::sea_orm_active_enums::UserRole;
 use uuid::Uuid;
 
 use super::jwt::{AccessClaims, verify_token};
@@ -11,7 +12,7 @@ use crate::core::state::AppState;
 
 pub struct AuthenticatedUser {
     pub id: Uuid,
-    pub role: String,
+    pub role: UserRole,
 }
 
 impl FromRequestParts<AppState> for AuthenticatedUser {
@@ -48,7 +49,7 @@ impl FromRequestParts<AppState> for AdminUser {
     ) -> Result<Self, Self::Rejection> {
         let auth_user = AuthenticatedUser::from_request_parts(parts, state).await?;
 
-        if auth_user.role != "admin" {
+        if auth_user.role != UserRole::Admin {
             return Err(AppError::Forbidden);
         }
 

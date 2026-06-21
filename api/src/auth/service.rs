@@ -4,7 +4,6 @@ use super::{
 };
 use crate::core::error::AppError;
 use chrono::{Duration, Utc};
-use entity::ext::AsStr;
 use jsonwebtoken::EncodingKey;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, Set};
 use uuid::Uuid;
@@ -36,7 +35,7 @@ pub async fn issue_tokens(
     let access_token = create_token(
         &AccessClaims {
             sub: user.id,
-            role: user.role.as_str(),
+            role: user.role.clone(),
             iat: now.timestamp() as usize,
             exp: exp_access.timestamp() as usize,
         },

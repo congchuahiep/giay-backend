@@ -3,10 +3,12 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode}
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use uuid::Uuid;
 
+use entity::sea_orm_active_enums::UserRole;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccessClaims {
     pub sub: Uuid,
-    pub role: String,
+    pub role: UserRole,
     pub exp: usize,
     pub iat: usize,
 }

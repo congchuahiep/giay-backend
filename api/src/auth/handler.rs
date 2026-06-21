@@ -1,5 +1,4 @@
 use super::{
-    AdminUser,
     dto::{LoginRequest, RefreshRequest, RegisterRequest, TokenResponse},
     jwt::{RefreshClaims, verify_token},
     password, service,
@@ -161,7 +160,7 @@ pub async fn logout(
 )]
 pub async fn revoke_token(
     State(state): State<AppState>,
-    _: AdminUser,
+    // _: AdminUser,
     Path(session_id): Path<Uuid>,
 ) -> Result<(), AppError> {
     let result = entity::user_session::Entity::delete_by_id(session_id)

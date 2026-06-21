@@ -2,9 +2,9 @@ pub mod auth;
 pub mod core;
 pub mod shared;
 pub mod user;
+pub mod workspace;
 
 use axum::{Json, Router, routing::get};
-use migration::{Migrator, MigratorTrait};
 use sea_orm::Database;
 use serde_json::{Value, json};
 use std::net::SocketAddr;
@@ -29,7 +29,6 @@ pub async fn run() -> anyhow::Result<()> {
     let config = Config::from_env()?;
 
     let db = Database::connect(&config.database_url).await?;
-    Migrator::up(&db, None).await?;
 
     let state = AppState {
         db,
@@ -37,10 +36,11 @@ pub async fn run() -> anyhow::Result<()> {
     };
 
     let mut openapi = crate::core::swagger::ApiDoc::openapi();
-    openapi.merge(crate::auth::swagger::AuthApiDoc::openapi());
+    openapi.merge(crate::auth::AuthApiDoc::openapi());
+    openapi.merge(crate::user::UserApiDoc::openapi());
 
     let app = Router::new()
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", openapi))
+        .merge(SwaggerUi::new("/swagger").url("/api-docs/openapi.json", openapi))
         .route("/health", get(health))
         .nest("/api/auth", auth::router())
         .nest("/api/user", user::router())
