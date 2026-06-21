@@ -1,3 +1,5 @@
-mod extractors;
+mod ext;
+mod extractor;
 
-pub use extractors::PathModel;
+pub use ext::LookupColumn;
+pub use extractor::{PathModel, PathModelBy};

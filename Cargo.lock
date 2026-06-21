@@ -1048,6 +1048,7 @@ version = "0.1.0"
 dependencies = [
  "sea-orm",
  "serde",
+ "utoipa",
 ]
 
 [[package]]
@@ -1295,6 +1296,7 @@ dependencies = [
  "entity",
  "jsonwebtoken",
  "migration",
+ "o2o",
  "rand_core 0.10.1",
  "sea-orm",
  "serde",
@@ -2077,6 +2079,37 @@ checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
  "libm",
+]
+
+[[package]]
+name = "o2o"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ae833a87400b8cdd4184c7e33507069c4f5ec3850f28b4d948e9d16bfb719c1"
+dependencies = [
+ "o2o-impl",
+ "o2o-macros",
+]
+
+[[package]]
+name = "o2o-impl"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ab8d9676fa300d6e79c638b8d346fb0baf2013b0af1fba65b7b46fe16d00366"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "o2o-macros"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f92f47081db11ff79cb540118af9e4673ee8a625f43014785f570a6738fd004"
+dependencies = [
+ "o2o-impl",
+ "syn 2.0.117",
 ]
 
 [[package]]

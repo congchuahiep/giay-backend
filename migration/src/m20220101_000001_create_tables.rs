@@ -1,4 +1,4 @@
-use sea_orm_migration::{prelude::*, sea_query::extension::postgres::Type};
+use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -89,29 +89,19 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_table(Table::drop().table("workspace_membership").to_owned())
-            .await?;
+        let db = manager.get_connection();
 
-        manager
-            .drop_type(Type::drop().name("workspace_role").to_owned())
-            .await?;
-
-        manager
-            .drop_table(Table::drop().table("workspace").to_owned())
-            .await?;
-
-        manager
-            .drop_table(Table::drop().table("user_session").to_owned())
-            .await?;
-
-        manager
-            .drop_table(Table::drop().table("user").to_owned())
-            .await?;
-
-        manager
-            .drop_type(Type::drop().name("user_role").to_owned())
-            .await?;
+        db.execute_unprepared(
+            r#"
+            DROP TABLE IF EXISTS workspace_membership;
+            DROP TYPE IF EXISTS workspace_role;
+            DROP TABLE IF EXISTS workspace;
+            DROP TABLE IF EXISTS user_session;
+            DROP TABLE IF EXISTS "user";
+            DROP TYPE IF EXISTS user_role;
+            "#,
+        )
+        .await?;
 
         Ok(())
     }
