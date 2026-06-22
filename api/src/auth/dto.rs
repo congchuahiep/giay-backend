@@ -1,17 +1,20 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use validator::Validate;
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, Validate)]
 pub struct LoginRequest {
     #[schema(example = "admin@workspace.com")]
+    #[validate(email)]
     pub email: String,
     #[schema(example = "Secret123!")]
     pub password: String,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, Validate)]
 pub struct RegisterRequest {
     #[schema(example = "admin@workspace.com")]
+    #[validate(email)]
     pub email: String,
     #[schema(example = "Secret123!")]
     pub password: String,

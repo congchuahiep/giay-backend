@@ -6,6 +6,7 @@ use super::{
 use crate::{
     auth::AdminUser,
     core::{error::AppError, state::AppState},
+    shared::ValidatedJson,
 };
 use axum::{
     Json,
@@ -29,7 +30,7 @@ use uuid::Uuid;
 )]
 pub async fn login(
     State(state): State<AppState>,
-    Json(payload): Json<LoginRequest>,
+    ValidatedJson(payload): ValidatedJson<LoginRequest>,
 ) -> Result<(StatusCode, Json<TokenResponse>), AppError> {
     let user = entity::user::Entity::find()
         .filter(entity::user::Column::Email.eq(payload.email))
@@ -56,7 +57,7 @@ pub async fn login(
 )]
 pub async fn register(
     State(state): State<AppState>,
-    Json(payload): Json<RegisterRequest>,
+    ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> Result<(StatusCode, Json<TokenResponse>), AppError> {
     let hashed_password = password::hash_password(payload.password.clone()).await?;
 

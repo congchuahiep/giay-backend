@@ -2,7 +2,7 @@ use super::dto::CreateWorkspaceRequest;
 use crate::{
     auth::AuthenticatedUser,
     core::{error::AppError, state::AppState},
-    shared::resolve_v7_id,
+    shared::{ValidatedJson, resolve_v7_id},
 };
 use axum::{Json, extract::State, http::StatusCode};
 use entity::{sea_orm_active_enums::WorkspaceRole, workspace, workspace_membership};
@@ -46,6 +46,7 @@ pub async fn list_workspaces(
     path = "",
     tag = "Workspace",
     summary = "Create a new workspace",
+    request_body = CreateWorkspaceRequest,
     responses(
         (status = 201, description = "Workspace created", body = WorkspaceResponse),
     ),
@@ -56,7 +57,7 @@ pub async fn list_workspaces(
 pub async fn create_workspace(
     State(state): State<AppState>,
     user: AuthenticatedUser,
-    Json(payload): Json<CreateWorkspaceRequest>,
+    ValidatedJson(payload): ValidatedJson<CreateWorkspaceRequest>,
 ) -> Result<(StatusCode, Json<WorkspaceResponse>), AppError> {
     let txn = state.db.begin().await?;
 

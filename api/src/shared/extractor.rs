@@ -1,6 +1,10 @@
-use axum::extract::{FromRequestParts, Path};
+use axum::{
+    Json,
+    extract::{FromRequest, FromRequestParts, Path, Request, rejection::JsonRejection},
+};
 use sea_orm::{ColumnTrait, EntityTrait, PrimaryKeyTrait, QueryFilter};
 use serde::de::DeserializeOwned;
+use validator::Validate;
 
 use crate::{
     core::{error::AppError, state::AppState},
@@ -94,5 +98,58 @@ impl<E: LookupColumn> FromRequestParts<AppState> for PathModelBy<E> {
             Ok(None) => Err(AppError::NotFound),
             Err(e) => Err(AppError::InternalServerError(e.into())),
         }
+    }
+}
+
+/// This extractor have the same behavior as [`Json`] but with additional validation using the
+/// [`validator`] crate.
+///
+/// # Example
+///
+///
+///
+/// ```ignore
+/// #[derive(Deserialize, Validate)]
+/// struct ProductRequest {
+///     #[validate(length(min = 1))]
+///     name: String,
+///     price: f64,
+/// }
+///
+/// /// POST /products
+/// pub fn create_product(
+///     ValidatedJson(product): ValidatedJson<ProductRequest>
+/// ) -> impl IntoResponse {
+///     Ok(product)
+/// }
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ValidatedJson<T>(pub T);
+
+impl<T, S> FromRequest<S> for ValidatedJson<T>
+where
+    T: DeserializeOwned + Validate,
+    S: Send + Sync,
+    Json<T>: FromRequest<S, Rejection = JsonRejection>,
+{
+    type Rejection = AppError;
+
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+        let Json(value) = Json::<T>::from_request(req, state)
+            .await
+            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+        if let Err(errors) = value.validate() {
+            let error_message = errors
+                .field_errors()
+                .into_iter()
+                .next()
+                .map(|(_, errs)| errs[0].message.as_deref().unwrap_or("Invalid data"))
+                .unwrap_or("Invalid data");
+
+            return Err(AppError::BadRequest(error_message.to_string()));
+        }
+
+        Ok(ValidatedJson(value))
     }
 }

@@ -1,15 +1,28 @@
 use entity::workspace;
 use o2o::o2o;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 use utoipa::ToSchema;
+use validator::Validate;
 
-#[derive(Deserialize, ToSchema)]
+static SLUG_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-z0-9-]+$").unwrap());
+
+#[derive(Deserialize, ToSchema, Validate)]
 pub struct CreateWorkspaceRequest {
     pub id: Option<uuid::Uuid>,
+
     #[schema(example = "My Team Workspace")]
+    #[validate(length(min = 1, message = "Cannot be empty"))]
     pub name: String,
+
     #[schema(example = "my-workspace")]
+    #[validate(regex(
+        path = *SLUG_REGEX,
+        message = "Slug only allows lowercase letters, numbers, and hyphens"
+    ))]
     pub slug: String,
+
     #[schema(example = "🚀")]
     pub icon: Option<String>,
 }
