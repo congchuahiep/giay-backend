@@ -3,5 +3,5 @@ mod extractor;
 mod utils;
 
 pub use ext::LookupColumn;
-pub use extractor::{PathModel, PathModelBy};
+pub use extractor::*;
 pub use utils::*;
