@@ -1,10 +1,13 @@
-use std::env;
+use sea_orm::{Database, DatabaseConnection};
+use std::{env, net::SocketAddr};
+use tracing_subscriber::{EnvFilter, fmt};
 
 pub struct Config {
     pub database_url: String,
     pub jwt_secret: String,
     pub host: String,
     pub port: u16,
+    pub log_level: String,
 }
 
 impl Config {
@@ -17,6 +20,27 @@ impl Config {
                 .ok()
                 .and_then(|value| value.parse::<u16>().ok())
                 .unwrap_or(8000),
+            log_level: env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_owned()),
         })
+    }
+
+    pub fn setup_tracing(&self) {
+        fmt()
+            .with_env_filter(EnvFilter::new(&self.log_level))
+            .init();
+    }
+
+    /// Kết nối database từ URL trong config
+    pub async fn connect_db(&self) -> anyhow::Result<DatabaseConnection> {
+        Database::connect(&self.database_url)
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Parse host:port thành SocketAddr
+    pub fn socket_addr(&self) -> anyhow::Result<SocketAddr> {
+        format!("{}:{}", self.host, self.port)
+            .parse()
+            .map_err(Into::into)
     }
 }

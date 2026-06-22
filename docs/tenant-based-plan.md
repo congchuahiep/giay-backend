@@ -8,25 +8,31 @@ Chúng ta sử dụng mô hình **Shared Database, Shared Schema**, nơi tất c
 
 ### 1.1. Các Bảng Cốt Lõi (Core Tables)
 1. **Bảng `workspace`**:
-   - `id` (UUID, Primary Key)
+   - `id` (UUIDv7, Primary Key)
    - `name` (String)
    - `slug` (String, giới hạn 255 Unique, Index - Dùng để làm URL, ví dụ: `/w/my-company`)
    - `icon` (String) giới hạn 1 ký tự
-   - `owner_id` (UUID, Foreign Key trỏ tới `user.id`)
+   - `owner_id` (UUIDv7, Foreign Key trỏ tới `user.id`)
    - `created_at` (Timestamp)
    - `updated_at` (Timestamp)
 
 2. **Bảng `workspace_membership`**:
-   - `workspace_id` (UUID, Foreign Key)
-   - `user_id` (UUID, Foreign Key)
+   - `workspace_id` (UUIDv7, Foreign Key)
+   - `user_id` (UUIDv7, Foreign Key)
    - `role` (Enum: `OWNER`, `MODERATOR`, `MEMBER`, `VIEWER`)
    - *Primary Key kép:* `(workspace_id, user_id)`
 
-### 1.2. Kỹ Thuật Khóa Chính Kép (Composite Primary Keys)
-Để giải quyết bài toán chống trùng lặp UUID (do Client sinh ra) và chuẩn bị hạ tầng cho **Database Partitioning / Sharding** khi dữ liệu phình to lên hàng trăm triệu dòng:
-- Mọi bảng dữ liệu sinh ra bên trong Workspace (ví dụ: `page`, `block`, `comment`) đều **BẮT BUỘC** phải có `workspace_id`.
-- Sử dụng **Composite Primary Key**: `(workspace_id, entity_id)`.
-- Ví dụ bảng `page`: Primary Key là `(workspace_id, page_id)`.
+### 1.2. Kỹ Thuật Khóa Chính Kép (Composite Primary Keys) và UUIDv7
+Để giải quyết bài toán chống trùng lặp ID trong môi trường **Offline-first** (ID do Client sinh ra) và chuẩn bị hạ tầng cho **Database Partitioning / Sharding** khi dữ liệu phình to lên hàng trăm triệu dòng, chúng ta áp dụng các nguyên tắc sau:
+
+1. **Sử dụng UUIDv7 cho toàn bộ hệ thống:**
+   - Tất cả các ID (bao gồm `workspace_id`, `page_id`, `block_id`...) BẮT BUỘC phải sử dụng định dạng **UUIDv7**.
+   - *Lý do:* UUIDv7 chứa timestamp giúp tuần tự hóa khi Insert, triệt tiêu hoàn toàn vấn đề phân mảnh B-Tree của UUIDv4. Điều này giúp tối ưu cực tốt tốc độ đồng bộ (Bulk Insert) khi Client online trở lại và đẩy một khối lượng lớn dữ liệu Offline lên Server. Đồng thời hỗ trợ sắp xếp theo thời gian mặc định.
+
+2. **Composite Primary Key (Khóa chính kép):**
+   - Mọi bảng dữ liệu sinh ra bên trong Workspace (ví dụ: `page`, `block`, `comment`) đều **BẮT BUỘC** phải có `workspace_id`.
+   - Sử dụng khóa chính kép: `(workspace_id, entity_id)`.
+   - *Ví dụ bảng `page`:* Primary Key là `(workspace_id, id)`. Cấu trúc này khoanh vùng rủi ro va chạm ID xuống mức cách ly hoàn toàn theo Workspace, đồng thời bắt buộc mọi câu Query phải đính kèm `workspace_id`, ngăn chặn lỗi IDOR triệt để.
 
 ## 2. Kiến Trúc Phân Quyền Bằng Axum Extractors
 

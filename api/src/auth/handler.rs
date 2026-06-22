@@ -3,10 +3,14 @@ use super::{
     jwt::{RefreshClaims, verify_token},
     password, service,
 };
-use crate::core::{error::AppError, state::AppState};
+use crate::{
+    auth::AdminUser,
+    core::{error::AppError, state::AppState},
+};
 use axum::{
     Json,
     extract::{Path, State},
+    http::StatusCode,
 };
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, SqlErr};
 use serde_json::json;
@@ -17,6 +21,7 @@ use uuid::Uuid;
     path = "/login",
     tag = "Authentication",
     request_body = LoginRequest,
+    summary = "Login",
     responses(
         (status = 200, description = "Đăng nhập thành công", body = TokenResponse),
         (status = 401, description = "Sai email hoặc mật khẩu")
@@ -25,7 +30,7 @@ use uuid::Uuid;
 pub async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
-) -> Result<Json<TokenResponse>, AppError> {
+) -> Result<(StatusCode, Json<TokenResponse>), AppError> {
     let user = entity::user::Entity::find()
         .filter(entity::user::Column::Email.eq(payload.email))
         .one(&state.db)
@@ -35,26 +40,28 @@ pub async fn login(
     password::verify_password(payload.password.clone(), user.password.clone()).await?;
 
     let token_response = service::issue_tokens(&user, &state.db, &state.jwt_secret).await?;
-    Ok(Json(token_response))
+    Ok((StatusCode::OK, Json(token_response)))
 }
 
 #[utoipa::path(
     post,
     path = "/register",
     tag = "Authentication",
+    summary = "Register a new user",
     request_body = RegisterRequest,
     responses(
-        (status = 200, description = "Đăng ký thành công", body = TokenResponse),
-        (status = 400, description = "Dữ liệu không hợp lệ hoặc email đã tồn tại")
+        (status = 201, description = "Registration successful", body = TokenResponse),
+        (status = 400, description = "Invalid data or email already exists")
     )
 )]
 pub async fn register(
     State(state): State<AppState>,
     Json(payload): Json<RegisterRequest>,
-) -> Result<Json<TokenResponse>, AppError> {
+) -> Result<(StatusCode, Json<TokenResponse>), AppError> {
     let hashed_password = password::hash_password(payload.password.clone()).await?;
 
     let new_user = entity::user::ActiveModel {
+        id: Set(Uuid::now_v7()),
         email: Set(payload.email),
         password: Set(hashed_password),
         first_name: Set(payload.first_name),
@@ -81,23 +88,24 @@ pub async fn register(
     };
 
     let token_response = service::issue_tokens(&user, &state.db, &state.jwt_secret).await?;
-    Ok(Json(token_response))
+    Ok((StatusCode::CREATED, Json(token_response)))
 }
 
 #[utoipa::path(
     post,
     path = "/refresh-token",
     tag = "Authentication",
+    summary = "Refresh Token",
     request_body = RefreshRequest,
     responses(
-        (status = 200, description = "Làm mới token thành công", body = TokenResponse),
-        (status = 401, description = "Refresh token không hợp lệ hoặc đã bị thu hồi")
+        (status = 200, description = "Refresh token successfully", body = TokenResponse),
+        (status = 401, description = "Refresh token is invalid or has been revoked")
     )
 )]
 pub async fn refresh_token(
     State(state): State<AppState>,
     Json(payload): Json<RefreshRequest>,
-) -> Result<Json<TokenResponse>, AppError> {
+) -> Result<(StatusCode, Json<TokenResponse>), AppError> {
     let claims: RefreshClaims = verify_token(&payload.refresh_token, &state.jwt_secret)?;
 
     // Kiểm tra xem phiên đăng nhập có tồn tại không bằng cách xoá phiên đăng nhập cũ trước đó
@@ -117,42 +125,47 @@ pub async fn refresh_token(
         .ok_or(AppError::Unauthorized)?;
 
     let token_response = service::issue_tokens(&user, &state.db, &state.jwt_secret).await?;
-    Ok(Json(token_response))
+    Ok((StatusCode::OK, Json(token_response)))
 }
 
 #[utoipa::path(
     post,
     path = "/logout",
     tag = "Authentication",
+    summary = "Logout",
     request_body = RefreshRequest,
     responses(
-        (status = 200, description = "Đăng xuất thành công")
+        (status = 200, description = "Logout successfully")
     )
 )]
 pub async fn logout(
     State(state): State<AppState>,
     Json(payload): Json<RefreshRequest>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<(StatusCode, Json<serde_json::Value>), AppError> {
     let claims: RefreshClaims = verify_token(&payload.refresh_token, &state.jwt_secret)?;
 
     entity::user_session::Entity::delete_by_id(claims.jti)
         .exec(&state.db)
         .await?;
 
-    Ok(Json(json!({ "message": "Đăng xuất thành công" })))
+    Ok((
+        StatusCode::OK,
+        Json(json!({ "message": "Logout successfully" })),
+    ))
 }
 
 #[utoipa::path(
     post,
     path = "/revoke-token/{session_id}",
     tag = "Authentication",
+    summary = "Revoke Token",
     params(
-        ("session_id" = Uuid, Path, description = "ID của phiên đăng nhập cần thu hồi")
+        ("session_id" = Uuid, Path, description = "The ID of the session to revoke")
     ),
     responses(
-        (status = 200, description = "Thu hồi token thành công"),
-        (status = 401, description = "Không có quyền thực hiện"),
-        (status = 404, description = "Không tìm thấy phiên đăng nhập")
+        (status = 200, description = "Revoke token successfully"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Session not found")
     ),
     security(
         ("bearer_auth" = [])
@@ -160,7 +173,7 @@ pub async fn logout(
 )]
 pub async fn revoke_token(
     State(state): State<AppState>,
-    // _: AdminUser,
+    _: AdminUser,
     Path(session_id): Path<Uuid>,
 ) -> Result<(), AppError> {
     let result = entity::user_session::Entity::delete_by_id(session_id)

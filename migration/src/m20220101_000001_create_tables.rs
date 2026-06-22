@@ -20,7 +20,7 @@ impl MigrationTrait for Migration {
             /* sql */
             r#"
             CREATE TABLE "user" (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                id UUID PRIMARY KEY DEFAULT,
                 email TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 first_name TEXT NOT NULL,
