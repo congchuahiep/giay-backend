@@ -5,7 +5,7 @@ use validator::Validate;
 #[derive(Deserialize, ToSchema, Validate)]
 pub struct LoginRequest {
     #[schema(example = "admin@workspace.com")]
-    #[validate(email)]
+    #[validate(email(message = "Invalid email"))]
     pub email: String,
     #[schema(example = "Secret123!")]
     pub password: String,
@@ -14,7 +14,7 @@ pub struct LoginRequest {
 #[derive(Deserialize, ToSchema, Validate)]
 pub struct RegisterRequest {
     #[schema(example = "admin@workspace.com")]
-    #[validate(email)]
+    #[validate(email(message = "Invalid email"))]
     pub email: String,
     #[schema(example = "Secret123!")]
     pub password: String,

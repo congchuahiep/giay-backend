@@ -6,17 +6,12 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-pub struct WorkspaceContext {
-    pub workspace_id: Uuid,
-    pub workspace_slug: String,
-    pub user_role: Option<WorkspaceRole>,
-}
-
 #[derive(FromQueryResult)]
-struct WorkspaceQueryResult {
-    id: Uuid,
-    slug: String,
-    user_role: Option<WorkspaceRole>,
+pub struct WorkspaceQueryResult {
+    pub id: Uuid,
+    pub slug: String,
+    pub name: String,
+    pub user_role: Option<WorkspaceRole>,
 }
 
 /// Resolves the workspace context for a given slug and user ID.
@@ -24,7 +19,7 @@ pub async fn resolve_workspace_context(
     database: &DatabaseConnection,
     slug: &str,
     user_id: &Uuid,
-) -> Result<WorkspaceContext, AppError> {
+) -> Result<WorkspaceQueryResult, AppError> {
     // Cache check (optional, có thể thêm Redis sau)
     // Query workspace + membership trong 1 câu (LEFT JOIN)
     let user_id_val = *user_id;
@@ -43,6 +38,7 @@ pub async fn resolve_workspace_context(
         .select_only()
         .column(workspace::Column::Id)
         .column(workspace::Column::Slug)
+        .column(workspace::Column::Name)
         .column_as(workspace_membership::Column::Role, "user_role")
         .into_model::<WorkspaceQueryResult>()
         .one(database)
@@ -51,9 +47,10 @@ pub async fn resolve_workspace_context(
 
     let workspace_data = workspace_data.ok_or(AppError::NotFound)?;
 
-    Ok(WorkspaceContext {
-        workspace_id: workspace_data.id,
-        workspace_slug: workspace_data.slug,
+    Ok(WorkspaceQueryResult {
+        id: workspace_data.id,
+        slug: workspace_data.slug,
+        name: workspace_data.name,
         user_role: workspace_data.user_role,
     })
 }

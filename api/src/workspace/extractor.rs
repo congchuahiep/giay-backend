@@ -11,8 +11,9 @@ use entity::sea_orm_active_enums::WorkspaceRole;
 use uuid::Uuid;
 
 pub struct ActiveWorkspace {
-    pub workspace_id: Uuid,
-    pub workspace_slug: String,
+    pub id: Uuid,
+    pub slug: String,
+    pub name: String,
     pub user_role: WorkspaceRole,
 }
 
@@ -23,19 +24,23 @@ impl FromRequestParts<AppState> for ActiveWorkspace {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let Path(slug): Path<String> = Path::from_request_parts(parts, state)
+        let Path(workspace_slug): Path<String> = Path::from_request_parts(parts, state)
             .await
-            .map_err(|_| AppError::BadRequest("Thiếu workspace slug".into()))?;
+            .map_err(|_| AppError::BadRequest("Missing workspace slug".into()))?;
 
         let user = AuthenticatedUser::from_request_parts(parts, state).await?;
 
+        println!("workspace_slug: {}", workspace_slug);
+
         // Cache check (optional, có thể thêm Redis sau)
         // Query workspace + membership trong 1 câu (JOIN)
-        let context = service::resolve_workspace_context(&state.db, &slug, &user.id).await?;
+        let context =
+            service::resolve_workspace_context(&state.db, &workspace_slug, &user.id).await?;
 
         Ok(ActiveWorkspace {
-            workspace_id: context.workspace_id,
-            workspace_slug: context.workspace_slug,
+            id: context.id,
+            slug: context.slug,
+            name: context.name,
             user_role: if let Some(role) = context.user_role {
                 role
             } else {
