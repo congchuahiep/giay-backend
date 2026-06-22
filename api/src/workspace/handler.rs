@@ -1,4 +1,7 @@
-use super::dto::CreateWorkspaceRequest;
+use super::{
+    WorkspaceMember,
+    dto::{ActiveWorkspaceResponse, CreateWorkspaceRequest, WorkspaceResponse},
+};
 use crate::{
     auth::AuthenticatedUser,
     core::{error::AppError, state::AppState},
@@ -10,8 +13,6 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, JoinType, QueryFilter,
     QuerySelect, RelationTrait, SqlErr, TransactionTrait,
 };
-
-use super::dto::WorkspaceResponse;
 
 #[utoipa::path(
     get,
@@ -92,4 +93,25 @@ pub async fn create_workspace(
 
     txn.commit().await?;
     Ok((StatusCode::CREATED, Json(new_ws.into())))
+}
+
+#[utoipa::path(
+    get,
+    path = "/{workspace_slug}/current",
+    tag = "Workspace",
+    summary = "Get current workspace",
+    params(
+        ("workspace_slug" = String, Path, description = "The slug of the workspace", example = "my-workspace"),
+    ),
+    responses(
+        (status = 200, description = "Current workspace", body = ActiveWorkspaceResponse),
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn current_workspace(
+    WorkspaceMember(ws): WorkspaceMember,
+) -> Result<(StatusCode, Json<ActiveWorkspaceResponse>), AppError> {
+    Ok((StatusCode::OK, Json(ws.into())))
 }

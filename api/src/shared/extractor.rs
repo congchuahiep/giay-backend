@@ -139,6 +139,7 @@ where
             .await
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
+        // TODO: Sửa cái này để nó trả lỗi cho mỗi loại trường
         if let Err(errors) = value.validate() {
             let error_message = errors
                 .field_errors()
