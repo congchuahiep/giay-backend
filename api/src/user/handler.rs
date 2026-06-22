@@ -9,7 +9,7 @@ use sea_orm::EntityTrait;
 
 #[utoipa::path(
     get,
-    path = "/api/user/me",
+    path = "/me",
     tag = "User",
     responses(
         (status = 200, description = "Lấy thông tin người dùng thành công"),

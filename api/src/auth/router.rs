@@ -1,12 +1,12 @@
 use super::handler;
 use crate::core::state::AppState;
-use axum::{Router, routing::post};
+use utoipa_axum::{router::OpenApiRouter, routes};
 
-pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/login", post(handler::login))
-        .route("/register", post(handler::register))
-        .route("/logout", post(handler::logout))
-        .route("/refresh-token", post(handler::refresh_token))
-        .route("/revoke-token/{session_id}", post(handler::revoke_token))
+pub fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(handler::login))
+        .routes(routes!(handler::register))
+        .routes(routes!(handler::logout))
+        .routes(routes!(handler::refresh_token))
+        .routes(routes!(handler::revoke_token))
 }

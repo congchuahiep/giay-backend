@@ -3,9 +3,17 @@ use utoipa::{Modify, OpenApi};
 
 #[derive(OpenApi)]
 #[openapi(
+    components(
+        schemas(
+            crate::auth::dto::LoginRequest,
+            crate::auth::dto::RegisterRequest,
+            crate::auth::dto::RefreshRequest,
+            crate::auth::dto::TokenResponse,
+            crate::user::dto::UserResponse,
+        )
+    ),
     modifiers(&SecurityAddon)
 )]
-
 pub struct ApiDoc;
 
 struct SecurityAddon;

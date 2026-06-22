@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 #[utoipa::path(
     post,
-    path = "/api/auth/login",
+    path = "/login",
     tag = "Authentication",
     request_body = LoginRequest,
     responses(
@@ -40,7 +40,7 @@ pub async fn login(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/register",
+    path = "/register",
     tag = "Authentication",
     request_body = RegisterRequest,
     responses(
@@ -86,7 +86,7 @@ pub async fn register(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/refresh-token",
+    path = "/refresh-token",
     tag = "Authentication",
     request_body = RefreshRequest,
     responses(
@@ -122,7 +122,7 @@ pub async fn refresh_token(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/logout",
+    path = "/logout",
     tag = "Authentication",
     request_body = RefreshRequest,
     responses(
@@ -144,7 +144,7 @@ pub async fn logout(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/revoke-token/{session_id}",
+    path = "/revoke-token/{session_id}",
     tag = "Authentication",
     params(
         ("session_id" = Uuid, Path, description = "ID của phiên đăng nhập cần thu hồi")

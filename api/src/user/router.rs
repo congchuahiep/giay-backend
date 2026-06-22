@@ -1,7 +1,7 @@
 use super::handler;
 use crate::core::state::AppState;
-use axum::{Router, routing::get};
+use utoipa_axum::{router::OpenApiRouter, routes};
 
-pub fn router() -> Router<AppState> {
-    Router::new().route("/me", get(handler::me))
+pub fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().routes(routes!(handler::me))
 }
