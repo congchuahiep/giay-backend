@@ -4,7 +4,7 @@ pub mod shared;
 pub mod user;
 pub mod workspace;
 
-use axum::{Json, Router, routing::get};
+use axum::Json;
 use sea_orm::Database;
 use serde_json::{Value, json};
 use std::net::SocketAddr;
@@ -35,15 +35,17 @@ pub async fn run() -> anyhow::Result<()> {
         jwt_secret: config.jwt_secret,
     };
 
-    let mut openapi = crate::core::swagger::ApiDoc::openapi();
-    openapi.merge(crate::auth::AuthApiDoc::openapi());
-    openapi.merge(crate::user::UserApiDoc::openapi());
-
-    let app = Router::new()
-        .merge(SwaggerUi::new("/swagger").url("/api-docs/openapi.json", openapi))
-        .route("/health", get(health))
+    let (router, api) = utoipa_axum::router::OpenApiRouter::new()
         .nest("/api/auth", auth::router())
         .nest("/api/user", user::router())
+        .split_for_parts();
+
+    let mut openapi = crate::core::swagger::ApiDoc::openapi();
+    openapi.merge(api);
+
+    let app = router
+        .merge(SwaggerUi::new("/swagger").url("/api-docs/openapi.json", openapi))
+        .route("/health", axum::routing::get(health))
         .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
