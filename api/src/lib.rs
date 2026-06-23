@@ -18,9 +18,11 @@ pub async fn run() -> anyhow::Result<()> {
     let config = Config::from_env()?;
     let _ = config.setup_tracing();
     let db = config.connect_db().await?;
+    let redis = config.connect_redis().await?;
 
     let state = AppState {
         db,
+        redis,
         jwt_secret: config.jwt_secret.clone(),
     };
 
