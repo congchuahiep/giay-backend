@@ -95,6 +95,24 @@ pub async fn create_workspace(
 }
 
 #[utoipa::path(
+    get,
+    path = "/{workspace_slug}",
+    tag = "Workspace",
+    summary = "Get a workspace detail by slug",
+    responses(
+        (status = 200, description = "Workspace found", body = WorkspaceResponse),
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn get_workspace(
+    WorkspaceMember(ws): WorkspaceMember,
+) -> Result<Json<WorkspaceResponse>, AppError> {
+    Ok(Json(ws.workspace.into()))
+}
+
+#[utoipa::path(
     patch,
     path = "/{workspace_slug}",
     tag = "Workspace",
@@ -115,7 +133,7 @@ pub async fn update_workspace(
     Json(payload): Json<UpdateWorkspaceRequest>,
 ) -> Result<(StatusCode, Json<WorkspaceResponse>), AppError> {
     let mut updated_workspace = workspace::ActiveModel {
-        id: Set(ws.id),
+        id: Set(ws.workspace.id),
         ..Default::default()
     };
 
@@ -149,7 +167,7 @@ pub async fn delete_workspace(
     State(state): State<AppState>,
 ) -> Result<StatusCode, AppError> {
     let deleted_workspace = workspace::ActiveModel {
-        id: Set(ws.id),
+        id: Set(ws.workspace.id),
         deleted_at: Set(Some(chrono::Utc::now().into())),
         ..Default::default()
     };

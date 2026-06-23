@@ -8,11 +8,18 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
+use sea_orm::prelude::DateTimeWithTimeZone;
+
 #[derive(FromQueryResult)]
 pub struct WorkspaceQueryResult {
     pub id: Uuid,
     pub slug: String,
     pub name: String,
+    pub icon: Option<String>,
+    pub owner_id: Option<Uuid>,
+    pub created_at: Option<DateTimeWithTimeZone>,
+    pub updated_at: Option<DateTimeWithTimeZone>,
+    pub deleted_at: Option<DateTimeWithTimeZone>,
     pub user_role: Option<WorkspaceRole>,
 }
 
@@ -21,13 +28,14 @@ pub async fn resolve_workspace_context(
     database: &DatabaseConnection,
     slug: &str,
     user_id: &Uuid,
-) -> Result<WorkspaceQueryResult, AppError> {
+) -> Result<(workspace::Model, Option<WorkspaceRole>), AppError> {
     // Cache check (optional, có thể thêm Redis sau)
     // Query workspace + membership trong 1 câu (LEFT JOIN)
     let user_id_val = *user_id;
     let workspace_data = workspace::Entity::find()
-        .active()
         .filter(workspace::Column::Slug.eq(slug))
+        // CHÚ Ý: Bổ sung .active() để áp dụng cơ chế xoá mềm
+        .active()
         .join(
             JoinType::LeftJoin,
             workspace::Relation::WorkspaceMembership
@@ -38,19 +46,25 @@ pub async fn resolve_workspace_context(
                         .into_condition()
                 }),
         )
-        .select_only()
+        // Không dùng select_only() nữa để lấy TOÀN BỘ cột mặc định của bảng workspace
         .column_as(workspace_membership::Column::Role, "user_role")
         .into_model::<WorkspaceQueryResult>()
         .one(database)
         .await
         .map_err(AppError::from)?;
 
-    let workspace_data = workspace_data.ok_or(AppError::NotFound)?;
+    let data = workspace_data.ok_or(AppError::NotFound)?;
 
-    Ok(WorkspaceQueryResult {
-        id: workspace_data.id,
-        slug: workspace_data.slug,
-        name: workspace_data.name,
-        user_role: workspace_data.user_role,
-    })
+    let model = workspace::Model {
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        icon: data.icon,
+        owner_id: data.owner_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        deleted_at: data.deleted_at,
+    };
+
+    Ok((model, data.user_role))
 }
