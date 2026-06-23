@@ -31,11 +31,16 @@ impl FromRequestParts<AppState> for ActiveWorkspace {
 
         // Cache check (optional, có thể thêm Redis sau)
         // Query workspace + membership trong 1 câu (JOIN)
-        let (workspace_model, user_role_opt) =
-            service::resolve_workspace_context(&state.db, &workspace_slug, &user.id).await?;
+        let (workspace, user_role_opt) = service::resolve_workspace_context(
+            &state.db,
+            &mut state.redis.clone(),
+            &workspace_slug,
+            &user.id,
+        )
+        .await?;
 
         Ok(ActiveWorkspace {
-            workspace: workspace_model,
+            workspace,
             user_role: if let Some(role) = user_role_opt {
                 role
             } else {
