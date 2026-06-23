@@ -20,7 +20,7 @@ impl MigrationTrait for Migration {
             /* sql */
             r#"
             CREATE TABLE "user" (
-                id UUID PRIMARY KEY DEFAULT,
+                id UUID PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 first_name TEXT NOT NULL,
@@ -56,7 +56,8 @@ impl MigrationTrait for Migration {
                 icon TEXT NULL,
                 owner_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                deleted_at TIMESTAMP WITH TIME ZONE NULL
             );
             "#,
         )

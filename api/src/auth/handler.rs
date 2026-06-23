@@ -6,14 +6,14 @@ use super::{
 use crate::{
     auth::AdminUser,
     core::{error::AppError, state::AppState},
-    shared::ValidatedJson,
+    shared::{DbErrExt, ValidatedJson},
 };
 use axum::{
     Json,
     extract::{Path, State},
     http::StatusCode,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, SqlErr};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -70,23 +70,10 @@ pub async fn register(
         ..Default::default()
     };
 
-    let user = match new_user.insert(&state.db).await {
-        Ok(user) => user,
-        Err(e) if let Some(SqlErr::UniqueConstraintViolation(msg)) = e.sql_err() => {
-            if msg.contains("user_email_key") {
-                return Err(AppError::BadRequest(
-                    "Email này đã được đăng ký, vui lòng dùng email khác!".to_string(),
-                ));
-            }
-            return Err(AppError::BadRequest(msg));
-        }
-        Err(e) => {
-            return Err(AppError::InternalServerError(anyhow::anyhow!(
-                "DB Error: {}",
-                e
-            )));
-        }
-    };
+    let user = new_user.insert(&state.db).await.check_unique(&[(
+        "user_email_key",
+        "This email is already registered, please use a different email!",
+    )])?;
 
     let token_response = service::issue_tokens(&user, &state.db, &state.jwt_secret).await?;
     Ok((StatusCode::CREATED, Json(token_response)))
@@ -173,8 +160,8 @@ pub async fn logout(
     )
 )]
 pub async fn revoke_token(
-    State(state): State<AppState>,
     _: AdminUser,
+    State(state): State<AppState>,
     Path(session_id): Path<Uuid>,
 ) -> Result<(), AppError> {
     let result = entity::user_session::Entity::delete_by_id(session_id)

@@ -62,3 +62,20 @@ impl FromRequestParts<AppState> for WorkspaceMember {
         Ok(WorkspaceMember(ws))
     }
 }
+
+pub struct WorkspaceOwner(pub ActiveWorkspace);
+
+impl FromRequestParts<AppState> for WorkspaceOwner {
+    type Rejection = AppError;
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let ws = ActiveWorkspace::from_request_parts(parts, state).await?;
+
+        match ws.user_role {
+            WorkspaceRole::Owner | WorkspaceRole::Moderator => Ok(WorkspaceOwner(ws)),
+            _ => Err(AppError::Forbidden),
+        }
+    }
+}

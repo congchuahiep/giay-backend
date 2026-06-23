@@ -13,7 +13,6 @@ pub struct UserResponse {
     pub first_name: String,
     #[schema(example = "Job")]
     pub last_name: String,
-    // #[schema(value_type = String, example = "user")]
     pub role: UserRole,
     #[schema(example = "true")]
     pub is_active: bool,

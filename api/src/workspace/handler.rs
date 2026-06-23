@@ -3,15 +3,19 @@ use super::{
     dto::{ActiveWorkspaceResponse, CreateWorkspaceRequest, WorkspaceResponse},
 };
 use crate::{
+    assign_patch,
     auth::AuthenticatedUser,
     core::{error::AppError, state::AppState},
-    shared::{ValidatedJson, resolve_v7_id},
+    shared::{DbErrExt, ValidatedJson, resolve_v7_id},
+    workspace::{WorkspaceOwner, dto::UpdateWorkspaceRequest},
 };
 use axum::{Json, extract::State, http::StatusCode};
-use entity::{sea_orm_active_enums::WorkspaceRole, workspace, workspace_membership};
+use entity::{
+    SoftDeleteQueryExt, sea_orm_active_enums::WorkspaceRole, workspace, workspace_membership,
+};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, JoinType, QueryFilter,
-    QuerySelect, RelationTrait, SqlErr, TransactionTrait,
+    QuerySelect, RelationTrait, TransactionTrait,
 };
 
 #[utoipa::path(
@@ -27,14 +31,15 @@ use sea_orm::{
     )
 )]
 pub async fn list_workspaces(
-    State(state): State<AppState>,
     user: AuthenticatedUser,
+    State(state): State<AppState>,
 ) -> Result<Json<Vec<WorkspaceResponse>>, AppError> {
     let workspaces = workspace::Entity::find()
         .join(
             JoinType::InnerJoin,
             workspace::Relation::WorkspaceMembership.def(),
         )
+        .active()
         .filter(workspace_membership::Column::UserId.eq(user.id))
         .all(&state.db)
         .await?;
@@ -56,8 +61,8 @@ pub async fn list_workspaces(
     )
 )]
 pub async fn create_workspace(
-    State(state): State<AppState>,
     user: AuthenticatedUser,
+    State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<CreateWorkspaceRequest>,
 ) -> Result<(StatusCode, Json<WorkspaceResponse>), AppError> {
     let txn = state.db.begin().await?;
@@ -71,16 +76,10 @@ pub async fn create_workspace(
     }
     .insert(&txn)
     .await
-    .map_err(|e| {
-        if let Some(SqlErr::UniqueConstraintViolation(msg)) = e.sql_err() {
-            if msg.contains("workspace_slug_key") {
-                return AppError::BadRequest(
-                    "Slug này đã tồn tại, vui lòng chọn slug khác!".into(),
-                );
-            }
-        }
-        AppError::from(e)
-    })?;
+    .check_unique(&[(
+        "workspace_slug_key",
+        "This slug is already taken, please choose a different one!",
+    )])?;
 
     workspace_membership::ActiveModel {
         workspace_id: Set(new_ws.id),
@@ -93,6 +92,71 @@ pub async fn create_workspace(
 
     txn.commit().await?;
     Ok((StatusCode::CREATED, Json(new_ws.into())))
+}
+
+#[utoipa::path(
+    patch,
+    path = "/{workspace_slug}",
+    tag = "Workspace",
+    summary = "Update workspace",
+    params(
+        ("workspace_slug" = String, Path, description = "The slug of the workspace", example = "my-workspace"),
+    ),
+    responses(
+        (status = 200, description = "Workspace updated"),
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn update_workspace(
+    WorkspaceOwner(ws): WorkspaceOwner,
+    State(state): State<AppState>,
+    Json(payload): Json<UpdateWorkspaceRequest>,
+) -> Result<(StatusCode, Json<WorkspaceResponse>), AppError> {
+    let mut updated_workspace = workspace::ActiveModel {
+        id: Set(ws.id),
+        ..Default::default()
+    };
+
+    assign_patch!(updated_workspace, payload, [name, slug, icon]);
+
+    let result = updated_workspace.update(&state.db).await.check_unique(&[(
+        "workspace_slug_key",
+        "This slug is already taken, please choose a different one!",
+    )])?;
+
+    Ok((StatusCode::OK, Json(result.into())))
+}
+
+#[utoipa::path(
+    delete,
+    path = "/{workspace_slug}",
+    tag = "Workspace",
+    summary = "Delete workspace",
+    params(
+        ("workspace_slug" = String, Path, description = "The slug of the workspace", example = "my-workspace"),
+    ),
+    responses(
+        (status = 204, description = "Workspace deleted"),
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn delete_workspace(
+    WorkspaceOwner(ws): WorkspaceOwner,
+    State(state): State<AppState>,
+) -> Result<StatusCode, AppError> {
+    let deleted_workspace = workspace::ActiveModel {
+        id: Set(ws.id),
+        deleted_at: Set(Some(chrono::Utc::now().into())),
+        ..Default::default()
+    };
+
+    deleted_workspace.update(&state.db).await?;
+
+    return Ok(StatusCode::NO_CONTENT);
 }
 
 #[utoipa::path(

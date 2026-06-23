@@ -4,5 +4,5 @@ mod handler;
 mod router;
 mod service;
 
-pub use extractor::WorkspaceMember;
+pub use extractor::{WorkspaceMember, WorkspaceOwner};
 pub use router::router;
