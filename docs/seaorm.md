@@ -7,7 +7,10 @@ Dự án sử dụng SeaORM cho Database Layer. Do đặc thù SeaORM sử dụn
 - **Tuyệt đối KHÔNG** sinh Entity trực tiếp vào thư mục gốc `entity/src/`. Nếu làm vậy, CLI sẽ ghi đè file `lib.rs` và xóa mất toàn bộ cấu hình thủ công của chúng ta.
 - **Lệnh chuẩn để sinh Entity:** Phải luôn trỏ output vào thư mục `models/` và thêm cờ `--with-serde both`.
     ```bash
-    sea-orm-cli generate entity -o entity/src --lib --with-serde both
+    sea-orm-cli generate entity -o entity/src/models \
+        --with-serde both \
+        --enum-extra-derives 'utoipa::ToSchema' \
+        --enum-extra-attributes 'serde(rename_all = "snake_case")'
     ```
 
 ## 2. Quản lý Active Enum (Type-Safe Enums)

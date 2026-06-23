@@ -1,5 +1,7 @@
 use crate::core::error::AppError;
-use entity::{sea_orm_active_enums::WorkspaceRole, workspace, workspace_membership};
+use entity::{
+    SoftDeleteQueryExt, sea_orm_active_enums::WorkspaceRole, workspace, workspace_membership,
+};
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult, JoinType, QueryFilter,
     QuerySelect, RelationTrait, sea_query::IntoCondition,
@@ -24,6 +26,7 @@ pub async fn resolve_workspace_context(
     // Query workspace + membership trong 1 câu (LEFT JOIN)
     let user_id_val = *user_id;
     let workspace_data = workspace::Entity::find()
+        .active()
         .filter(workspace::Column::Slug.eq(slug))
         .join(
             JoinType::LeftJoin,
@@ -36,9 +39,6 @@ pub async fn resolve_workspace_context(
                 }),
         )
         .select_only()
-        .column(workspace::Column::Id)
-        .column(workspace::Column::Slug)
-        .column(workspace::Column::Name)
         .column_as(workspace_membership::Column::Role, "user_role")
         .into_model::<WorkspaceQueryResult>()
         .one(database)

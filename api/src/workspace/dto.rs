@@ -1,3 +1,4 @@
+use crate::shared::deserialize_some;
 use entity::{sea_orm_active_enums::WorkspaceRole, workspace};
 use o2o::o2o;
 use regex::Regex;
@@ -27,6 +28,24 @@ pub struct CreateWorkspaceRequest {
 
     #[schema(example = "🚀")]
     pub icon: Option<String>,
+}
+
+#[derive(Deserialize, ToSchema, Validate)]
+pub struct UpdateWorkspaceRequest {
+    #[schema(example = "My Team Workspace")]
+    #[validate(length(min = 1, message = "Cannot be empty"))]
+    pub name: Option<String>,
+
+    #[schema(example = "my-workspace")]
+    #[validate(regex(
+        path = *SLUG_REGEX,
+        message = "Slug only allows lowercase letters, numbers, and hyphens"
+    ))]
+    pub slug: Option<String>,
+
+    #[schema(example = "🚀")]
+    #[serde(default, deserialize_with = "deserialize_some")]
+    pub icon: Option<Option<String>>,
 }
 
 #[derive(Serialize, ToSchema, o2o)]

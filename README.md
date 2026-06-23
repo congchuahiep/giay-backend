@@ -5,6 +5,7 @@ Rust workspace for the Giấy backend using Axum and SeaORM.
 > [!IMPORTANT]
 > **Dành cho mọi lập trình viên và AI Agent:**
 > Vui lòng luôn đọc các tài liệu sau trước khi đóng góp mã nguồn:
+>
 > - **[Kiến trúc tổng thể (Architecture)](./docs/architecture.md)**
 > - **[Hướng dẫn sử dụng SeaORM](./docs/seaorm.md)**
 > - **[Kế hoạch triển khai Tenant-Based](./docs/tenant-based-plan.md)**
@@ -41,11 +42,10 @@ cargo run
 After applying migrations, generate SeaORM entities with:
 
 ```sh
-sea-orm-cli generate entity \
-  --database-url postgres://postgres:postgres@localhost:5432/giay \
-  --output-dir entity/src/models \
-  --entity-format dense \
-  --with-serde both
+sea-orm-cli generate entity -o entity/src/models \
+    --with-serde both \
+    --enum-extra-derives 'utoipa::ToSchema' \
+    --enum-extra-attributes 'serde(rename_all = "snake_case")'
 ```
 
 The `entity` crate is intentionally a placeholder until generated entities are added.

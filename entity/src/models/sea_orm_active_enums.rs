@@ -2,10 +2,17 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize, ToSchema,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    utoipa :: ToSchema,
 )]
 #[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "user_role")]
 #[serde(rename_all = "snake_case")]
@@ -15,7 +22,17 @@ pub enum UserRole {
     #[sea_orm(string_value = "user")]
     User,
 }
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    utoipa :: ToSchema,
+)]
 #[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "workspace_role")]
 #[serde(rename_all = "snake_case")]
 pub enum WorkspaceRole {
