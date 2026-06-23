@@ -8,12 +8,11 @@ use axum::{
     http::request::Parts,
 };
 use entity::sea_orm_active_enums::WorkspaceRole;
-use uuid::Uuid;
+
+use entity::workspace;
 
 pub struct ActiveWorkspace {
-    pub id: Uuid,
-    pub slug: String,
-    pub name: String,
+    pub workspace: workspace::Model,
     pub user_role: WorkspaceRole,
 }
 
@@ -30,18 +29,14 @@ impl FromRequestParts<AppState> for ActiveWorkspace {
 
         let user = AuthenticatedUser::from_request_parts(parts, state).await?;
 
-        println!("workspace_slug: {}", workspace_slug);
-
         // Cache check (optional, có thể thêm Redis sau)
         // Query workspace + membership trong 1 câu (JOIN)
-        let context =
+        let (workspace_model, user_role_opt) =
             service::resolve_workspace_context(&state.db, &workspace_slug, &user.id).await?;
 
         Ok(ActiveWorkspace {
-            id: context.id,
-            slug: context.slug,
-            name: context.name,
-            user_role: if let Some(role) = context.user_role {
+            workspace: workspace_model,
+            user_role: if let Some(role) = user_role_opt {
                 role
             } else {
                 return Err(AppError::Forbidden);

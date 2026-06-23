@@ -1,3 +1,4 @@
+use super::extractor;
 use crate::shared::deserialize_some;
 use entity::{sea_orm_active_enums::WorkspaceRole, workspace};
 use o2o::o2o;
@@ -6,8 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 use utoipa::ToSchema;
 use validator::Validate;
-
-use crate::workspace::extractor::ActiveWorkspace;
 
 static SLUG_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-z0-9-]+$").unwrap());
 
@@ -66,11 +65,11 @@ pub struct WorkspaceResponse {
 }
 
 #[derive(Serialize, ToSchema, o2o)]
-#[from_owned(ActiveWorkspace)]
+#[from_owned(extractor::ActiveWorkspace)]
 pub struct ActiveWorkspaceResponse {
-    pub id: uuid::Uuid,
-    pub name: String,
-    pub slug: String,
+    #[from(~.into())]
+    pub workspace: WorkspaceResponse,
+
     #[schema(value_type = String, example = "owner")]
     pub user_role: WorkspaceRole,
 }
