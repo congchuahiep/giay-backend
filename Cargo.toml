@@ -6,17 +6,19 @@ publish = false
 
 [workspace]
 resolver = "3"
-members = [".", "api", "entity", "migration"]
+members = [".", "api", "entity", "mail", "migration"]
 
 [workspace.dependencies]
+anyhow = "1"
 sea-orm = {
   version = "~2.0.0-rc",
   features = ["debug-print", "runtime-tokio-rustls", "sqlx-postgres"]
 }
+tracing = "0.1"
 uuid = { version = "1", features = ["v4", "v7"] }
 
 [dependencies]
-anyhow = "1"
+anyhow = { workspace = true }
 giay-api = { path = "api" }
 migration = { path = "migration" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -1,0 +1,10 @@
+[package]
+name = "mail"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+askama = "0.16"
+lettre = { version = "0.11", features = ["builder", "tokio1-native-tls"] }
+tracing = { workspace = true }
