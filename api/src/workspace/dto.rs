@@ -1,6 +1,6 @@
 use super::extractor;
 use crate::shared::deserialize_some;
-use entity::{sea_orm_active_enums::WorkspaceRole, workspace};
+use entity::{sea_orm_active_enums::WorkspaceRole, workspace, workspace_invitation};
 use o2o::o2o;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -47,6 +47,16 @@ pub struct UpdateWorkspaceRequest {
     pub icon: Option<Option<String>>,
 }
 
+#[derive(Deserialize, ToSchema, Validate)]
+pub struct CreateInvitationRequest {
+    #[schema(example = "colleague@example.com")]
+    #[validate(email(message = "Invalid email format"))]
+    pub email: String,
+
+    #[schema(value_type = String, example = "member")]
+    pub role: WorkspaceRole,
+}
+
 #[derive(Serialize, ToSchema, o2o)]
 #[from_owned(workspace::Model)]
 pub struct WorkspaceResponse {
@@ -72,4 +82,29 @@ pub struct ActiveWorkspaceResponse {
 
     #[schema(value_type = String, example = "owner")]
     pub user_role: WorkspaceRole,
+}
+
+#[derive(Serialize, ToSchema, o2o)]
+#[from_owned(workspace_invitation::Model)]
+pub struct InvitationResponse {
+    pub id: uuid::Uuid,
+    pub workspace_id: uuid::Uuid,
+    pub email: String,
+
+    #[schema(value_type = String)]
+    pub role: WorkspaceRole,
+
+    pub token: uuid::Uuid,
+
+    #[from(~.map(|t| t.to_string()))]
+    pub created_at: Option<String>,
+
+    #[from(~.to_string())]
+    pub expires_at: String,
+
+    #[from(~.map(|t| t.to_string()))]
+    pub accepted_at: Option<String>,
+
+    #[from(~.map(|t| t.to_string()))]
+    pub revoked_at: Option<String>,
 }

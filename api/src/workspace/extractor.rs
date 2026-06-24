@@ -7,13 +7,21 @@ use axum::{
     extract::{FromRequestParts, Path},
     http::request::Parts,
 };
-use entity::sea_orm_active_enums::WorkspaceRole;
+use entity::{WorkspaceBound, sea_orm_active_enums::WorkspaceRole};
 
 use entity::workspace;
+use sea_orm::{ColumnTrait, QueryFilter};
 
 pub struct ActiveWorkspace {
+    pub auth: AuthenticatedUser,
     pub workspace: workspace::Model,
     pub user_role: WorkspaceRole,
+}
+
+impl ActiveWorkspace {
+    pub fn bound_query<E: WorkspaceBound>(&self) -> sea_orm::Select<E> {
+        E::find().filter(E::workspace_column().eq(self.workspace.id))
+    }
 }
 
 impl FromRequestParts<AppState> for ActiveWorkspace {
@@ -27,7 +35,7 @@ impl FromRequestParts<AppState> for ActiveWorkspace {
             .await
             .map_err(|_| AppError::BadRequest("Missing workspace slug".into()))?;
 
-        let user = AuthenticatedUser::from_request_parts(parts, state).await?;
+        let auth = AuthenticatedUser::from_request_parts(parts, state).await?;
 
         // Cache check (optional, có thể thêm Redis sau)
         // Query workspace + membership trong 1 câu (JOIN)
@@ -35,11 +43,12 @@ impl FromRequestParts<AppState> for ActiveWorkspace {
             &state.db,
             &mut state.redis.clone(),
             &workspace_slug,
-            &user.id,
+            &auth.id,
         )
         .await?;
 
         Ok(ActiveWorkspace {
+            auth,
             workspace,
             user_role: if let Some(role) = user_role_opt {
                 role
@@ -63,6 +72,23 @@ impl FromRequestParts<AppState> for WorkspaceMember {
     }
 }
 
+pub struct WorkspaceModerator(pub ActiveWorkspace);
+
+impl FromRequestParts<AppState> for WorkspaceModerator {
+    type Rejection = AppError;
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let ws = ActiveWorkspace::from_request_parts(parts, state).await?;
+
+        match ws.user_role {
+            WorkspaceRole::Owner | WorkspaceRole::Moderator => Ok(WorkspaceModerator(ws)),
+            _ => Err(AppError::Forbidden),
+        }
+    }
+}
+
 pub struct WorkspaceOwner(pub ActiveWorkspace);
 
 impl FromRequestParts<AppState> for WorkspaceOwner {
@@ -74,7 +100,7 @@ impl FromRequestParts<AppState> for WorkspaceOwner {
         let ws = ActiveWorkspace::from_request_parts(parts, state).await?;
 
         match ws.user_role {
-            WorkspaceRole::Owner | WorkspaceRole::Moderator => Ok(WorkspaceOwner(ws)),
+            WorkspaceRole::Owner => Ok(WorkspaceOwner(ws)),
             _ => Err(AppError::Forbidden),
         }
     }

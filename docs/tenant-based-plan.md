@@ -63,22 +63,24 @@ pub async fn delete_page(
 
 Cần thực hiện theo các bước tuần tự sau:
 
-- [ ] **Bước 1: Migrations** 
+- [x] **Bước 1: Migrations** 
   - Viết file migration tạo bảng `workspace` và `workspace_membership`.
   - Định nghĩa Enum `MembershipRole` trong CSDL.
-- [ ] **Bước 2: SeaORM Entities**
+- [x] **Bước 2: SeaORM Entities**
   - Chạy `sea-orm-cli generate entity` để sinh các file model cho Workspace.
-- [ ] **Bước 3: Xây dựng Domain Module**
+- [x] **Bước 3: Xây dựng Domain Module**
   - Tạo thư mục `api/src/workspace/` (thuộc cấp kiến trúc phẳng như `auth`, `user`).
   - Cấu trúc: `dto.rs`, `handler.rs`, `router.rs`, `service.rs`.
-- [ ] **Bước 4: Implement Extractors**
+- [x] **Bước 4: Implement Extractors**
   - Tạo file `api/src/workspace/extractor.rs`.
   - Code logic cho `ActiveWorkspace` và các Role Extractors.
-- [ ] **Bước 5: Phát triển APIs**
+- [x] **Bước 5: Phát triển APIs**
   - API tạo Workspace mới.
   - API lấy danh sách Workspace của User đang đăng nhập.
-  - API mời thành viên (Invitation) hoặc thêm thành viên vào Workspace.
   - API cập nhật/xóa thành viên.
+- [ ] **Bước 6: API Mời Thành Viên (Invitation)**
+  - API mời thành viên (Invitation) hoặc thêm thành viên vào Workspace, gửi mail
+  - API huỷ lời mời (Cancel Invitation).
 
 ## 4. Tương lai (Future Scalability)
 - **Caching**: Lọc và lưu trữ `workspace_context` (chứa role của user) vào Redis với thời gian sống ngắn để giảm tải truy vấn JOIN bảng Membership ở mỗi Request.

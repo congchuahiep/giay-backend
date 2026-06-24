@@ -27,22 +27,27 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::workspace::Entity")]
     Workspace,
+    #[sea_orm(has_many = "super::workspace_invitation::Entity")]
+    WorkspaceInvitation,
     #[sea_orm(has_many = "super::workspace_membership::Entity")]
     WorkspaceMembership,
+}
+
+impl Related<super::workspace::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Workspace.def()
+    }
+}
+
+impl Related<super::workspace_invitation::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::WorkspaceInvitation.def()
+    }
 }
 
 impl Related<super::workspace_membership::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::WorkspaceMembership.def()
-    }
-}
-
-impl Related<super::workspace::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::workspace_membership::Relation::Workspace.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::workspace_membership::Relation::User.def().rev())
     }
 }
 
