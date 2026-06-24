@@ -9,7 +9,7 @@ use crate::{
     shared::{DbErrExt, ValidatedJson, resolve_v7_id},
     workspace::{
         WorkspaceModerator, WorkspaceOwner,
-        dto::{CreateInvitationRequest, UpdateWorkspaceRequest},
+        dto::{CreateInvitationRequest, InvitationResponse, UpdateWorkspaceRequest},
         service,
     },
 };
@@ -103,6 +103,9 @@ pub async fn create_workspace(
     path = "/{workspace_slug}",
     tag = "Workspace",
     summary = "Get a workspace detail by slug",
+    params(
+        ("workspace_slug" = String, Path, description = "The slug of the workspace", example = "my-workspace"),
+    ),
     responses(
         (status = 200, description = "Workspace found", body = WorkspaceResponse),
     ),
@@ -202,11 +205,27 @@ pub async fn current_workspace(
     Ok((StatusCode::OK, Json(ws.into())))
 }
 
+#[utoipa::path(
+    post,
+    path = "/{workspace_slug}/invite",
+    tag = "Invitation",
+    summary = "Send invitation",
+    params(
+        ("workspace_slug" = String, Path, description = "The slug of the workspace", example = "my-workspace"),
+    ),
+    request_body = CreateInvitationRequest,
+    responses(
+        (status = 201, description = "Invitation sent", body = InvitationResponse),
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
 pub async fn send_invitation(
     State(state): State<AppState>,
     WorkspaceModerator(aw): WorkspaceModerator,
     Json(payload): Json<CreateInvitationRequest>,
-) -> Result<(StatusCode, ()), AppError> {
+) -> Result<(StatusCode, Json<InvitationResponse>), AppError> {
     let invitation = service::create_invitation(
         &state.db,
         aw.auth.id,
@@ -216,5 +235,16 @@ pub async fn send_invitation(
     )
     .await?;
 
-    Ok((StatusCode::CREATED, ()))
+    let mailer = state.mailer.clone();
+    tokio::spawn(async move {
+        mailer
+            .send_invitation(
+                &payload.email,
+                &aw.workspace.name,
+                &invitation.token.to_string(),
+            )
+            .await
+    });
+
+    Ok((StatusCode::CREATED, Json(invitation.into())))
 }

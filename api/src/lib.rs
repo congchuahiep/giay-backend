@@ -16,15 +16,9 @@ pub async fn run() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
     let config = Config::from_env()?;
-    let _ = config.setup_tracing();
-    let db = config.connect_db().await?;
-    let redis = config.connect_redis().await?;
+    config.setup_tracing();
 
-    let state = AppState {
-        db,
-        redis,
-        jwt_secret: config.jwt_secret.clone(),
-    };
+    let state = AppState::new(&config).await?;
 
     let app_router = router::build(state);
     serve(app_router, config.socket_addr()?).await
