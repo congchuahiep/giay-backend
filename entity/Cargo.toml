@@ -12,3 +12,4 @@ path = "src/lib.rs"
 sea-orm = { version = "2.0.0-rc", features = ["macros"] }
 serde = { version = "1", features = ["derive"] }
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
+uuid = { workspace = true }

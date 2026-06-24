@@ -30,22 +30,27 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+    #[sea_orm(has_many = "super::workspace_invitation::Entity")]
+    WorkspaceInvitation,
     #[sea_orm(has_many = "super::workspace_membership::Entity")]
     WorkspaceMembership,
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
+    }
+}
+
+impl Related<super::workspace_invitation::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::WorkspaceInvitation.def()
+    }
 }
 
 impl Related<super::workspace_membership::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::WorkspaceMembership.def()
-    }
-}
-
-impl Related<super::user::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::workspace_membership::Relation::User.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::workspace_membership::Relation::Workspace.def().rev())
     }
 }
 

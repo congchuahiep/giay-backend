@@ -7,7 +7,11 @@ use crate::{
     auth::AuthenticatedUser,
     core::{error::AppError, state::AppState},
     shared::{DbErrExt, ValidatedJson, resolve_v7_id},
-    workspace::{WorkspaceOwner, dto::UpdateWorkspaceRequest},
+    workspace::{
+        WorkspaceModerator, WorkspaceOwner,
+        dto::{CreateInvitationRequest, UpdateWorkspaceRequest},
+        service,
+    },
 };
 use axum::{Json, extract::State, http::StatusCode};
 use entity::{
@@ -196,4 +200,21 @@ pub async fn current_workspace(
     WorkspaceMember(ws): WorkspaceMember,
 ) -> Result<(StatusCode, Json<ActiveWorkspaceResponse>), AppError> {
     Ok((StatusCode::OK, Json(ws.into())))
+}
+
+pub async fn send_invitation(
+    State(state): State<AppState>,
+    WorkspaceModerator(aw): WorkspaceModerator,
+    Json(payload): Json<CreateInvitationRequest>,
+) -> Result<(StatusCode, ()), AppError> {
+    let invitation = service::create_invitation(
+        &state.db,
+        aw.auth.id,
+        aw.workspace.id,
+        &payload.email,
+        payload.role,
+    )
+    .await?;
+
+    Ok((StatusCode::CREATED, ()))
 }

@@ -86,6 +86,29 @@ impl MigrationTrait for Migration {
         )
         .await?;
 
+        db.execute_unprepared(
+            /* sql */
+            r#"
+            CREATE TABLE workspace_invitation (
+                id UUID,
+                workspace_id UUID REFERENCES workspace(id) ON DELETE CASCADE,
+                email TEXT NOT NULL,
+                role workspace_role NOT NULL,
+                token UUID UNIQUE NOT NULL,
+                invited_by UUID REFERENCES "user"(id) ON DELETE SET NULL,
+
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                accepted_at TIMESTAMP WITH TIME ZONE NULL,
+                revoked_at TIMESTAMP WITH TIME ZONE NULL,
+
+                PRIMARY KEY (workspace_id, id),
+                UNIQUE (workspace_id, email)
+            );
+            "#,
+        )
+        .await?;
+
         Ok(())
     }
 
@@ -100,6 +123,7 @@ impl MigrationTrait for Migration {
             DROP TABLE IF EXISTS user_session;
             DROP TABLE IF EXISTS "user";
             DROP TYPE IF EXISTS user_role;
+            DROP TABLE IF EXISTS "workspace_invitation";
             "#,
         )
         .await?;
