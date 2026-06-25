@@ -1,4 +1,4 @@
-use super::service;
+use super::workspace::service;
 use crate::{
     auth::AuthenticatedUser,
     core::{error::AppError, state::AppState},

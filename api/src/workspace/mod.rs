@@ -1,8 +1,7 @@
-mod dto;
 mod extractor;
-mod handler;
+mod invitation;
 mod router;
-mod service;
+mod workspace;
 
 pub use extractor::*;
 pub use router::router;
