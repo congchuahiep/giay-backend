@@ -1,4 +1,4 @@
-use crate::{core::error::AppError, shared::DbErrExt};
+use crate::{core::error::AppError, shared::DbErrExt, workspace::dto::InvitationStatus};
 use chrono::{Duration, Utc};
 use entity::{
     SoftDeleteQueryExt, WorkspaceBound, sea_orm_active_enums::WorkspaceRole, user, workspace,
@@ -171,29 +171,14 @@ pub async fn accept_invitation(
 ) -> Result<workspace_invitation::Model, AppError> {
     let txn = db.begin().await?;
 
-    if invitation.accepted_at.is_some() {
-        return Err(AppError::BadRequest(
-            "The invitation has already been accepted.".into(),
-        ));
-    }
-
-    if invitation.expires_at < Utc::now() {
-        return Err(AppError::BadRequest(
-            "The invitation has been expired.".into(),
-        ));
-    }
-
-    if invitation.revoked_at.is_some() {
-        return Err(AppError::BadRequest(
-            "The invitation has been revoked.".into(),
-        ));
-    }
+    let status = InvitationStatus::from_invitation(&invitation);
+    status.is_valid()?;
 
     let user = user::Entity::find_by_id(user_id)
         .one(&txn)
         .await?
         .map_or(Err(AppError::NotFound), |user| Ok(user))?;
-    if user.email != invitation.email {
+    if user.email.to_lowercase() != invitation.email.to_lowercase() {
         return Err(AppError::BadRequest(
             "The invitation is not for this user.".into(),
         ));

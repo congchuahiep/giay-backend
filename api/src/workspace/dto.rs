@@ -1,8 +1,10 @@
 use super::extractor;
-use crate::shared::deserialize_some;
+use crate::{core::error::AppError, shared::deserialize_some};
+use chrono::Utc;
 use entity::{sea_orm_active_enums::WorkspaceRole, workspace, workspace_invitation};
 use o2o::o2o;
 use regex::Regex;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 use utoipa::ToSchema;
@@ -107,4 +109,61 @@ pub struct InvitationResponse {
 
     #[from(~.map(|t| t.to_string()))]
     pub revoked_at: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct InvitationPreviewResponse {
+    #[schema(example = "My Workspace")]
+    pub workspace_name: String,
+    #[schema(example = "my-workspace")]
+    pub workspace_slug: String,
+    #[schema(example = "🚀")]
+    pub workspace_icon: Option<String>,
+
+    #[schema(value_type = String, example = "member")]
+    pub role: WorkspaceRole,
+
+    pub email: String,
+
+    pub user_exists: bool,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum InvitationStatus {
+    Pending,
+    Accepted,
+    Expired,
+    Revoked,
+}
+
+impl InvitationStatus {
+    /// Converts a workspace invitation model to an invitation status.
+    pub fn from_invitation(inv: &workspace_invitation::Model) -> Self {
+        if inv.accepted_at.is_some() {
+            return Self::Accepted;
+        }
+        if inv.revoked_at.is_some() {
+            return Self::Revoked;
+        }
+        let now: DateTimeWithTimeZone = Utc::now().into();
+        if inv.expires_at < now {
+            return Self::Expired;
+        }
+        Self::Pending
+    }
+
+    /// Returns an error if the invitation is not valid (expired, revoked, or already accepted).
+    pub fn is_valid(&self) -> Result<(), AppError> {
+        match self {
+            InvitationStatus::Expired => Err(AppError::BadRequest("Invitation has expired".into())),
+            InvitationStatus::Revoked => {
+                Err(AppError::BadRequest("Invitation has been revoked".into()))
+            }
+            InvitationStatus::Accepted => Err(AppError::BadRequest(
+                "Invitation has already been accepted".into(),
+            )),
+            _ => Ok(()),
+        }
+    }
 }
