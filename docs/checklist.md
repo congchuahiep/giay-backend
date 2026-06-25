@@ -23,7 +23,7 @@ Plan đơn giản ^^
 - [ ] **API Mời Thành Viên (Invitation)**
     - [x] API mời thành viên (Invitation) hoặc thêm thành viên vào Workspace, gửi mail
     - [x] API chấp nhận lời mời (Accept Invitation)
-    - [ ] API để người được mời xem thông tin lời mời (public).
+    - [x] API để người được mời xem thông tin lời mời (public).
     - [ ] API để gửi lại lời mời.
     - [ ] API huỷ lời mời (Cancel Invitation).
     

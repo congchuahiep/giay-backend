@@ -9,17 +9,20 @@ use crate::{
     shared::{DbErrExt, PathModelLookup, ValidatedJson, resolve_v7_id},
     workspace::{
         WorkspaceModerator, WorkspaceOwner,
-        dto::{CreateInvitationRequest, InvitationResponse, UpdateWorkspaceRequest},
+        dto::{
+            CreateInvitationRequest, InvitationPreviewResponse, InvitationResponse,
+            InvitationStatus, UpdateWorkspaceRequest,
+        },
         ext, service,
     },
 };
 use axum::{Json, extract::State, http::StatusCode};
 use entity::{
-    SoftDeleteQueryExt, sea_orm_active_enums::WorkspaceRole, workspace, workspace_membership,
+    SoftDeleteQueryExt, sea_orm_active_enums::WorkspaceRole, user, workspace, workspace_membership,
 };
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, JoinType, QueryFilter,
-    QuerySelect, RelationTrait, TransactionTrait,
+    QuerySelect, RelationTrait, SelectExt, TransactionTrait,
 };
 
 #[utoipa::path(
@@ -250,6 +253,51 @@ pub async fn send_invitation(
 }
 
 #[utoipa::path(
+    get,
+    path = "/invitations/{token}",
+    tag = "Invitation",
+    summary = "Preview invitation",
+    params(
+        ("token" = uuid::Uuid, Path, description = "The invitation token", example = "00000000-0000-0000-0000-000000000000"),
+    ),
+    responses(
+        (status = 200, description = "Invitation", body = InvitationPreviewResponse),
+        (status = 400, description = "Invalid token or invitation already accepted"),
+        (status = 404, description = "Invitation not found"),
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn preview_invitation(
+    PathModelLookup(invitation): PathModelLookup<ext::InvitationByToken>,
+    State(state): State<AppState>,
+) -> Result<Json<InvitationPreviewResponse>, AppError> {
+    let status = InvitationStatus::from_invitation(&invitation);
+    status.is_valid()?;
+
+    let workspace = workspace::Entity::find()
+        .filter(workspace::Column::Id.eq(invitation.workspace_id))
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound)?;
+
+    let user_exists = user::Entity::find()
+        .filter(user::Column::Email.eq(&invitation.email))
+        .exists(&state.db)
+        .await?;
+
+    Ok(Json(InvitationPreviewResponse {
+        workspace_name: workspace.name,
+        workspace_slug: workspace.slug,
+        workspace_icon: workspace.icon,
+        role: invitation.role,
+        email: invitation.email,
+        user_exists,
+    }))
+}
+
+#[utoipa::path(
     post,
     path = "/invitations/{token}",
     tag = "Invitation",
@@ -259,8 +307,8 @@ pub async fn send_invitation(
     ),
     responses(
         (status = 200, description = "Invitation accepted", body = InvitationResponse),
-        (status = 404, description = "Invitation not found"),
         (status = 400, description = "Invalid token or invitation already accepted"),
+        (status = 404, description = "Invitation not found"),
     ),
     security(
         ("bearer_auth" = [])
