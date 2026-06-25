@@ -11,7 +11,8 @@ pub fn router() -> OpenApiRouter<AppState> {
             handler::delete_workspace,
         ))
         .routes(routes!(handler::current_workspace))
-        .routes(routes!(handler::send_invitation))
+        .routes(routes!(handler::send_invitation, handler::list_invitations,))
+        .routes(routes!(handler::revoke_invitation))
         .routes(routes!(handler::resend_invitation))
         .routes(routes!(
             handler::accept_invitation,

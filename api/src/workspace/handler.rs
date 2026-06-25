@@ -17,13 +17,14 @@ use crate::{
     },
 };
 use axum::{Json, extract::State, http::StatusCode};
+use chrono::Utc;
 use entity::{
     InvitationById, InvitationByToken, SoftDeleteQueryExt, sea_orm_active_enums::WorkspaceRole,
-    user, workspace, workspace_membership,
+    user, workspace, workspace_invitation, workspace_membership,
 };
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, JoinType, QueryFilter,
-    QuerySelect, RelationTrait, SelectExt, TransactionTrait,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, JoinType,
+    QueryFilter, QueryOrder, QuerySelect, RelationTrait, SelectExt, TransactionTrait,
 };
 
 #[utoipa::path(
@@ -210,6 +211,32 @@ pub async fn current_workspace(
 }
 
 #[utoipa::path(
+    get,
+    path = "/{workspace_slug}/invitations",
+    tag = "Invitation",
+    summary = "List workspace invitations",
+    params(
+        ("workspace_slug" = String, Path, description = "The slug of the workspace"),
+    ),
+    responses(
+        (status = 200, description = "List of invitations", body = [InvitationResponse]),
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn list_invitations(
+    WorkspaceModerator(aw): WorkspaceModerator,
+    State(state): State<AppState>,
+) -> Result<Json<Vec<InvitationResponse>>, AppError> {
+    let invitations = aw
+        .bound_query::<workspace_invitation::Entity>()
+        .order_by_desc(workspace_invitation::Column::CreatedAt)
+        .all(&state.db)
+        .await?;
+
+    Ok(Json(invitations.into_iter().map(Into::into).collect()))
+}
+
+#[utoipa::path(
     post,
     path = "/{workspace_slug}/invitations",
     tag = "Workspace",
@@ -254,13 +281,52 @@ pub async fn send_invitation(
 }
 
 #[utoipa::path(
+    delete,
+    path = "/{workspace_slug}/invitations/{invitation_id}",
+    tag = "Invitation",
+    summary = "Revoke invitation",
+    params(
+        ("workspace_slug" = String, Path, description = "The slug of the workspace"),
+        ("invitation_id" = uuid::Uuid, Path, description = "The ID of the invitation to revoke"),
+    ),
+    responses(
+        (status = 204, description = "Invitation successfully revoked"),
+        (status = 400, description = "Cannot revoke accepted invitation"),
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn revoke_invitation(
+    _: WorkspaceModerator,
+    PathBoundModel(invitation): PathBoundModel<InvitationById>,
+    State(state): State<AppState>,
+) -> Result<StatusCode, AppError> {
+    let status = InvitationStatus::from_invitation(&invitation);
+
+    match status {
+        InvitationStatus::Accepted => {
+            return Err(AppError::BadRequest(
+                "Cannot revoke an invitation that has already been accepted.".into(),
+            ));
+        }
+        InvitationStatus::Revoked => return Ok(StatusCode::NO_CONTENT),
+        _ => {}
+    }
+
+    let mut invitation = invitation.into_active_model();
+    invitation.revoked_at = Set(Some(Utc::now().into()));
+
+    invitation.update(&state.db).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
     post,
-    path = "/{workspace_slug}/invitations/{id}/resend",
+    path = "/{workspace_slug}/invitations/{invitation_id}/resend",
     tag = "Invitation",
     summary = "Resend invitation",
     params(
         ("workspace_slug" = String, Path, description = "The slug of the workspace", example = "my-workspace"),
-        ("id" = uuid::Uuid, Path, description = "The ID of the invitation", example = ""),
+        ("invitation_id" = uuid::Uuid, Path, description = "The ID of the invitation", example = ""),
     ),
     responses(
         (status = 200, description = "Invitation resent", body = InvitationResponse),

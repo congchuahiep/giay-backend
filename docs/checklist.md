@@ -20,12 +20,13 @@ Plan đơn giản ^^
     - API cập nhật/xóa thành viên.
 - [x] **Migrations #2**
     - [x] Viết file migration tạo bảng `invitation`
-- [ ] **API Mời Thành Viên (Invitation)**
+- [x] **API Mời Thành Viên (Invitation)**
+    - [x] API xem danh sách lời mời của workspace
     - [x] API mời thành viên (Invitation) hoặc thêm thành viên vào Workspace, gửi mail
     - [x] API chấp nhận lời mời (Accept Invitation)
     - [x] API để người được mời xem thông tin lời mời (public).
     - [x] API để gửi lại lời mời.
-    - [ ] API huỷ lời mời (Cancel Invitation).
+    - [x] API huỷ lời mời (Cancel Invitation).
 - [ ] **API Quản lý thành viên trong workspace**
     - [ ] Xoá thành viên khỏi workspace.
     - [ ] API cập nhật thông tin thành viên trong workspace.
