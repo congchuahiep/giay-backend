@@ -1,4 +1,4 @@
-use crate::core::error::AppError;
+use crate::{core::error::AppError, shared::DbErrExt};
 use chrono::{Duration, Utc};
 use entity::{
     SoftDeleteQueryExt, WorkspaceBound, sea_orm_active_enums::WorkspaceRole, user, workspace,
@@ -7,8 +7,8 @@ use entity::{
 use redis::{AsyncTypedCommands, aio::MultiplexedConnection};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
-    FromQueryResult, JoinType, ModelTrait, QueryFilter, QuerySelect, RelationTrait,
-    sea_query::IntoCondition,
+    FromQueryResult, IntoActiveModel, JoinType, ModelTrait, QueryFilter, QuerySelect,
+    RelationTrait, TransactionTrait, sea_query::IntoCondition,
 };
 use tracing::error;
 use uuid::Uuid;
@@ -162,4 +162,61 @@ pub async fn create_invitation(
     let inserted = new_invitation.insert(db).await?;
 
     Ok(inserted)
+}
+
+pub async fn accept_invitation(
+    db: &DatabaseConnection,
+    invitation: workspace_invitation::Model,
+    user_id: Uuid,
+) -> Result<workspace_invitation::Model, AppError> {
+    let txn = db.begin().await?;
+
+    if invitation.accepted_at.is_some() {
+        return Err(AppError::BadRequest(
+            "The invitation has already been accepted.".into(),
+        ));
+    }
+
+    if invitation.expires_at < Utc::now() {
+        return Err(AppError::BadRequest(
+            "The invitation has been expired.".into(),
+        ));
+    }
+
+    if invitation.revoked_at.is_some() {
+        return Err(AppError::BadRequest(
+            "The invitation has been revoked.".into(),
+        ));
+    }
+
+    let user = user::Entity::find_by_id(user_id)
+        .one(&txn)
+        .await?
+        .map_or(Err(AppError::NotFound), |user| Ok(user))?;
+    if user.email != invitation.email {
+        return Err(AppError::BadRequest(
+            "The invitation is not for this user.".into(),
+        ));
+    }
+
+    workspace_membership::ActiveModel {
+        workspace_id: Set(invitation.workspace_id),
+        user_id: Set(user_id),
+        role: Set(invitation.role.clone()),
+        ..Default::default()
+    }
+    .insert(&txn)
+    .await
+    .check_unique(&[(
+        "workspace_membership_pkey",
+        "You are already a member of this workspace.",
+    )])?;
+
+    let mut invitation = invitation.into_active_model();
+    invitation.accepted_at = Set(Some(Utc::now().into()));
+    let invitation = invitation.update(&txn).await?;
+
+    txn.commit().await?;
+
+    return Ok(invitation.into());
 }

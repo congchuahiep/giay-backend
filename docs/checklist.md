@@ -22,7 +22,7 @@ Plan đơn giản ^^
     - [x] Viết file migration tạo bảng `invitation`
 - [ ] **API Mời Thành Viên (Invitation)**
     - [x] API mời thành viên (Invitation) hoặc thêm thành viên vào Workspace, gửi mail
-    - [ ] API chấp nhận lời mời (Accept Invitation)
+    - [x] API chấp nhận lời mời (Accept Invitation)
     - [ ] API để người được mời xem thông tin lời mời (public).
     - [ ] API để gửi lại lời mời.
     - [ ] API huỷ lời mời (Cancel Invitation).

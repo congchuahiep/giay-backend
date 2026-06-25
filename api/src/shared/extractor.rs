@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::{
     Json,
     extract::{FromRequest, FromRequestParts, Path, Request, rejection::JsonRejection},
@@ -8,11 +10,10 @@ use validator::Validate;
 
 use crate::{
     core::{error::AppError, state::AppState},
-    shared::LookupColumn,
+    shared::ColumnLookup,
 };
 
-/// Extractor tự động truy vấn model từ cơ sở dữ liệu dựa trên ID truyền vào từ đường dẫn
-/// (Path parameter)
+/// Extractor for auto-querying model from database based on ID from path parameter
 ///
 /// # Example
 ///
@@ -24,9 +25,9 @@ use crate::{
 /// ```
 ///
 /// # Error
-/// - [`AppError::BadRequest`]: Nếu ID trên đường dẫn không hợp lệ hoặc không đúng định dạng.
-/// - [`AppError::NotFound`]: Nếu không tìm thấy bản ghi nào trong cơ sở dữ liệu ứng với ID đó.
-/// - [`AppError::InternalServerError`]: Nếu xảy ra lỗi truy vấn cơ sở dữ liệu.
+/// - [`AppError::BadRequest`]: If the ID in the path is invalid or not in the correct format.
+/// - [`AppError::NotFound`]: If no record is found in the database corresponding to the ID.
+/// - [`AppError::InternalServerError`]: If a database error occurs.
 pub struct PathModel<E: EntityTrait>(pub E::Model);
 
 impl<E> FromRequestParts<AppState> for PathModel<E>
@@ -41,9 +42,10 @@ where
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         type IdType<E> = <<E as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType;
-        let Path(id): Path<IdType<E>> = Path::from_request_parts(parts, state)
-            .await
-            .map_err(|_| AppError::BadRequest("ID không hợp lệ".into()))?;
+        let Path(id): Path<IdType<E>> =
+            Path::from_request_parts(parts, state).await.map_err(|_| {
+                AppError::BadRequest("Path value is invalid or not in the correct format".into())
+            })?;
 
         match E::find_by_id(id).one(&state.db).await {
             Ok(Some(model)) => Ok(PathModel(model)),
@@ -53,48 +55,59 @@ where
     }
 }
 
-/// Extractor tự động truy vấn model từ cơ sở dữ liệu dựa trên [`LookupColumn`] được truyền vào
-/// từ đường dẫn (Path parameter)
+/// Extractor for auto-querying model from database based on [`ColumnLookup`] from path parameter
 ///
 /// # Example
 /// ```
-/// /// GET /workspaces/{slug}
-///
-/// impl LookupColumn for workspace::Entity {
-///     type ValueType = String;
-///     fn lookup_column() -> Self::Column {
-///         workspace::Column::Slug
+/// lookup!(
+///     WorkspaceBySlug => workspace::Entity {
+///         column: workspace::Column::Slug,
+///         value_type: String,
+///         param: "slug",
 ///     }
-/// }
+/// )
 ///
+/// /// GET /workspaces/{slug}
 /// pub async fn get_workspace(
-///     PathModelBy(ws): PathModelBy<workspace::Entity>
+///     PathModelLookup(ws): PathModelLookup<workspace::Entity>
 /// ) -> impl IntoResponse { ... }
 /// ```
 ///
 /// # Error
-/// - [`AppError::BadRequest`]: Nếu ID trên đường dẫn không hợp lệ hoặc không đúng định dạng.
-/// - [`AppError::NotFound`]: Nếu không tìm thấy bản ghi nào trong cơ sở dữ liệu ứng với ID đó.
-/// - [`AppError::InternalServerError`]: Nếu xảy ra lỗi truy vấn cơ sở dữ liệu.
-pub struct PathModelBy<E: LookupColumn>(pub E::Model);
+/// - [`AppError::BadRequest`]: If the value in the path is invalid or not in the correct format.
+/// - [`AppError::NotFound`]: If no record is found in the database corresponding to the value.
+/// - [`AppError::InternalServerError`]: If a database error occurs.
+pub struct PathModelLookup<L: ColumnLookup>(
+    pub <<L as ColumnLookup>::Entity as sea_orm::EntityTrait>::Model,
+);
 
-impl<E: LookupColumn> FromRequestParts<AppState> for PathModelBy<E> {
+impl<L: ColumnLookup> FromRequestParts<AppState> for PathModelLookup<L> {
     type Rejection = AppError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let Path(value): Path<E::ValueType> = Path::from_request_parts(parts, state)
+        let Path(params): Path<HashMap<String, String>> = Path::from_request_parts(parts, state)
             .await
-            .map_err(|_| AppError::BadRequest("Giá trị trên đường dẫn không hợp lệ".into()))?;
+            .map_err(|_| AppError::BadRequest("Invalid path".into()))?;
 
-        match E::find()
-            .filter(E::lookup_column().eq(value))
+        let raw_value = params.get(L::param_name()).ok_or_else(|| {
+            AppError::BadRequest(format!("Missing path param: '{}'", L::param_name()))
+        })?;
+
+        // Parse string → ValueType
+        // (Dùng serde_json để deserialize từ string, hỗ trợ Uuid, i32, String, v.v.)
+        let value: L::ValueType =
+            serde_json::from_value(serde_json::Value::String(raw_value.clone()))
+                .map_err(|_| AppError::BadRequest("Invalid path param format".into()))?;
+
+        match L::Entity::find()
+            .filter(L::column().eq(value))
             .one(&state.db)
             .await
         {
-            Ok(Some(model)) => Ok(PathModelBy(model)),
+            Ok(Some(model)) => Ok(PathModelLookup(model)),
             Ok(None) => Err(AppError::NotFound),
             Err(e) => Err(AppError::InternalServerError(e.into())),
         }
@@ -104,9 +117,9 @@ impl<E: LookupColumn> FromRequestParts<AppState> for PathModelBy<E> {
 /// This extractor have the same behavior as [`Json`] but with additional validation using the
 /// [`validator`] crate.
 ///
+/// Use this instead of [`Json<T>`] when `T` implements [`Validate`].
+///
 /// # Example
-///
-///
 ///
 /// ```ignore
 /// #[derive(Deserialize, Validate)]
