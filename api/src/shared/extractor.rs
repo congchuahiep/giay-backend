@@ -4,58 +4,21 @@ use axum::{
     Json,
     extract::{FromRequest, FromRequestParts, Path, Request, rejection::JsonRejection},
 };
-use sea_orm::{ColumnTrait, EntityTrait, PrimaryKeyTrait, QueryFilter};
+use entity::{ColumnLookup, WorkspaceBound};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::de::DeserializeOwned;
 use validator::Validate;
 
-use crate::{
-    core::{error::AppError, state::AppState},
-    shared::ColumnLookup,
-};
+use crate::core::{error::AppError, state::AppState};
 
-/// Extractor for auto-querying model from database based on ID from path parameter
+/// Extractor for auto-querying model from database based on [`ColumnLookup`] from path parameter.
 ///
-/// # Example
+/// The path parameter name must be the same as [`ColumnLookup::param_name`].
 ///
-/// ```ignore
-/// /// GET /products/{id}
-/// pub fn get_product(PathModel(product): PathModel<Product>) -> impl IntoResponse {
-///     Ok(product)
-/// }
-/// ```
+/// # Warning
 ///
-/// # Error
-/// - [`AppError::BadRequest`]: If the ID in the path is invalid or not in the correct format.
-/// - [`AppError::NotFound`]: If no record is found in the database corresponding to the ID.
-/// - [`AppError::InternalServerError`]: If a database error occurs.
-pub struct PathModel<E: EntityTrait>(pub E::Model);
-
-impl<E> FromRequestParts<AppState> for PathModel<E>
-where
-    E: EntityTrait,
-    <<E as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType: DeserializeOwned + Send + Sync,
-{
-    type Rejection = AppError;
-
-    async fn from_request_parts(
-        parts: &mut axum::http::request::Parts,
-        state: &AppState,
-    ) -> Result<Self, Self::Rejection> {
-        type IdType<E> = <<E as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType;
-        let Path(id): Path<IdType<E>> =
-            Path::from_request_parts(parts, state).await.map_err(|_| {
-                AppError::BadRequest("Path value is invalid or not in the correct format".into())
-            })?;
-
-        match E::find_by_id(id).one(&state.db).await {
-            Ok(Some(model)) => Ok(PathModel(model)),
-            Ok(None) => Err(AppError::NotFound),
-            Err(e) => Err(AppError::InternalServerError(e.into())),
-        }
-    }
-}
-
-/// Extractor for auto-querying model from database based on [`ColumnLookup`] from path parameter
+/// This extractor **CAN NOT** be used with [`WorkspaceBound`] entities. Use [`PathBoundModel`]
+/// instead.
 ///
 /// # Example
 /// ```
@@ -63,13 +26,13 @@ where
 ///     WorkspaceBySlug => workspace::Entity {
 ///         column: workspace::Column::Slug,
 ///         value_type: String,
-///         param: "slug",
+///         param: "workspace_slug",
 ///     }
 /// )
 ///
-/// /// GET /workspaces/{slug}
+/// /// GET /workspaces/{workspace_slug}
 /// pub async fn get_workspace(
-///     PathModelLookup(ws): PathModelLookup<workspace::Entity>
+///     PathModel(ws): PathModel<workspace::Entity>
 /// ) -> impl IntoResponse { ... }
 /// ```
 ///
@@ -77,11 +40,11 @@ where
 /// - [`AppError::BadRequest`]: If the value in the path is invalid or not in the correct format.
 /// - [`AppError::NotFound`]: If no record is found in the database corresponding to the value.
 /// - [`AppError::InternalServerError`]: If a database error occurs.
-pub struct PathModelLookup<L: ColumnLookup>(
+pub struct PathModel<L: ColumnLookup>(
     pub <<L as ColumnLookup>::Entity as sea_orm::EntityTrait>::Model,
 );
 
-impl<L: ColumnLookup> FromRequestParts<AppState> for PathModelLookup<L> {
+impl<L: ColumnLookup> FromRequestParts<AppState> for PathModel<L> {
     type Rejection = AppError;
 
     async fn from_request_parts(
@@ -107,7 +70,54 @@ impl<L: ColumnLookup> FromRequestParts<AppState> for PathModelLookup<L> {
             .one(&state.db)
             .await
         {
-            Ok(Some(model)) => Ok(PathModelLookup(model)),
+            Ok(Some(model)) => Ok(PathModel(model)),
+            Ok(None) => Err(AppError::NotFound),
+            Err(e) => Err(AppError::InternalServerError(e.into())),
+        }
+    }
+}
+
+/// Extractor for auto-querying model from database based on [`ColumnLookup`] from path parameter.
+/// Which automatically applies the tenant filter (only retrieves data from the current Workspace).
+///
+/// This design ensures that the tenant filter is applied automatically, preventing IDOR attacks.
+///
+/// The path parameter name must be the same as [`ColumnLookup::param_name`].
+pub struct PathBoundModel<L: ColumnLookup>(
+    pub <<L as ColumnLookup>::Entity as sea_orm::EntityTrait>::Model,
+);
+
+impl<L: ColumnLookup> FromRequestParts<AppState> for PathBoundModel<L>
+where
+    L::Entity: WorkspaceBound,
+{
+    type Rejection = AppError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let aw = crate::workspace::ActiveWorkspace::from_request_parts(parts, state).await?;
+
+        let Path(params): Path<HashMap<String, String>> = Path::from_request_parts(parts, state)
+            .await
+            .map_err(|_| AppError::BadRequest("Invalid path".into()))?;
+
+        let raw_value = params.get(L::param_name()).ok_or_else(|| {
+            AppError::BadRequest(format!("Missing path param: '{}'", L::param_name()))
+        })?;
+
+        let value: L::ValueType =
+            serde_json::from_value(serde_json::Value::String(raw_value.clone()))
+                .map_err(|_| AppError::BadRequest("Invalid path param format".into()))?;
+
+        match aw
+            .bound_query::<L::Entity>()
+            .filter(L::column().eq(value))
+            .one(&state.db)
+            .await
+        {
+            Ok(Some(model)) => Ok(PathBoundModel(model)),
             Ok(None) => Err(AppError::NotFound),
             Err(e) => Err(AppError::InternalServerError(e.into())),
         }

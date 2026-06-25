@@ -7,8 +7,8 @@ use entity::{
 use redis::{AsyncTypedCommands, aio::MultiplexedConnection};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
-    FromQueryResult, IntoActiveModel, JoinType, ModelTrait, QueryFilter, QuerySelect,
-    RelationTrait, TransactionTrait, sea_query::IntoCondition,
+    FromQueryResult, IntoActiveModel, JoinType, QueryFilter, QuerySelect, RelationTrait,
+    TransactionTrait, sea_query::IntoCondition,
 };
 use tracing::error;
 use uuid::Uuid;
@@ -127,25 +127,7 @@ pub async fn create_invitation(
         .await?;
 
     if let Some(invitation) = existing_invitation {
-        // Nếu DateTime trong DB lưu dưới dạng DateTimeWithTimeZone, SeaORM thường map ra
-        // `chrono::DateTime<FixedOffset>`
-        // Chúng ta lấy thời gian hiện tại để so sánh
-        let now: DateTimeWithTimeZone = Utc::now().into();
-
-        let is_active = invitation.accepted_at.is_none()
-            && invitation.revoked_at.is_none()
-            && invitation.expires_at > now;
-
-        if is_active {
-            // Đang có 1 lời mời hợp lệ chờ phản hồi
-            return Err(AppError::BadRequest(
-                "Đã có lời mời đang chờ xử lý cho email này.".into(),
-            ));
-        } else {
-            // Lời mời cũ đã hết hạn, bị thu hồi, hoặc người này đã từng accept rồi bị kick ra.
-            // Xóa lời mời cũ để nhường chỗ cho lời mời mới (giải quyết Unique Constraint).
-            invitation.delete(db).await?;
-        }
+        return resend_invitation(db, invited_by, invitation, Some(role)).await;
     }
 
     let new_invitation = workspace_invitation::ActiveModel {
@@ -160,6 +142,36 @@ pub async fn create_invitation(
     };
 
     let inserted = new_invitation.insert(db).await?;
+
+    Ok(inserted)
+}
+
+pub async fn resend_invitation(
+    db: &DatabaseConnection,
+    invited_by: Uuid,
+    invitation: workspace_invitation::Model,
+    new_role: Option<WorkspaceRole>,
+) -> Result<workspace_invitation::Model, AppError> {
+    let status = InvitationStatus::from_invitation(&invitation);
+
+    match status {
+        InvitationStatus::Accepted => Err(AppError::BadRequest(
+            "Cannot resend an invitation that has already been accepted.".into(),
+        )),
+        _ => Ok(()),
+    }?;
+
+    let mut invitation = invitation.into_active_model();
+    invitation.token = Set(Uuid::new_v4());
+    invitation.invited_by = Set(Some(invited_by));
+    invitation.revoked_at = Set(None);
+    invitation.expires_at = Set((Utc::now() + Duration::days(7)).into());
+
+    if let Some(role) = new_role {
+        invitation.role = Set(role);
+    }
+
+    let inserted = invitation.update(db).await?;
 
     Ok(inserted)
 }

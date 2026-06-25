@@ -6,19 +6,20 @@ use crate::{
     assign_patch,
     auth::AuthenticatedUser,
     core::{error::AppError, state::AppState},
-    shared::{DbErrExt, PathModelLookup, ValidatedJson, resolve_v7_id},
+    shared::{DbErrExt, PathBoundModel, PathModel, ValidatedJson, resolve_v7_id},
     workspace::{
         WorkspaceModerator, WorkspaceOwner,
         dto::{
             CreateInvitationRequest, InvitationPreviewResponse, InvitationResponse,
             InvitationStatus, UpdateWorkspaceRequest,
         },
-        ext, service,
+        service,
     },
 };
 use axum::{Json, extract::State, http::StatusCode};
 use entity::{
-    SoftDeleteQueryExt, sea_orm_active_enums::WorkspaceRole, user, workspace, workspace_membership,
+    InvitationById, InvitationByToken, SoftDeleteQueryExt, sea_orm_active_enums::WorkspaceRole,
+    user, workspace, workspace_membership,
 };
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, JoinType, QueryFilter,
@@ -210,7 +211,7 @@ pub async fn current_workspace(
 
 #[utoipa::path(
     post,
-    path = "/{workspace_slug}/invite",
+    path = "/{workspace_slug}/invitations",
     tag = "Workspace",
     summary = "Send invitation",
     params(
@@ -253,6 +254,48 @@ pub async fn send_invitation(
 }
 
 #[utoipa::path(
+    post,
+    path = "/{workspace_slug}/invitations/{id}/resend",
+    tag = "Invitation",
+    summary = "Resend invitation",
+    params(
+        ("workspace_slug" = String, Path, description = "The slug of the workspace", example = "my-workspace"),
+        ("id" = uuid::Uuid, Path, description = "The ID of the invitation", example = ""),
+    ),
+    responses(
+        (status = 200, description = "Invitation resent", body = InvitationResponse),
+        (status = 400, description = "Invitation already accepted or email already a member"),
+        (status = 404, description = "Invitation not found"),
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn resend_invitation(
+    WorkspaceModerator(aw): WorkspaceModerator,
+    PathBoundModel(invitation): PathBoundModel<InvitationById>,
+    State(state): State<AppState>,
+) -> Result<Json<InvitationResponse>, AppError> {
+    let invitation = service::resend_invitation(&state.db, aw.auth.id, invitation, None).await?;
+
+    let mailer = state.mailer.clone();
+    let to_email = invitation.email.clone();
+    let ws_name = aw.workspace.name.clone();
+    let token_str = invitation.token.to_string();
+
+    tokio::spawn(async move {
+        if let Err(e) = mailer
+            .send_invitation(&to_email, &ws_name, &token_str)
+            .await
+        {
+            tracing::error!("Failed to resend invitation email: {}", e);
+        }
+    });
+
+    Ok(Json(invitation.into()))
+}
+
+#[utoipa::path(
     get,
     path = "/invitations/{token}",
     tag = "Invitation",
@@ -270,7 +313,7 @@ pub async fn send_invitation(
     )
 )]
 pub async fn preview_invitation(
-    PathModelLookup(invitation): PathModelLookup<ext::InvitationByToken>,
+    PathModel(invitation): PathModel<InvitationByToken>,
     State(state): State<AppState>,
 ) -> Result<Json<InvitationPreviewResponse>, AppError> {
     let status = InvitationStatus::from_invitation(&invitation);
@@ -316,7 +359,7 @@ pub async fn preview_invitation(
 )]
 pub async fn accept_invitation(
     auth: AuthenticatedUser,
-    PathModelLookup(invitation): PathModelLookup<ext::InvitationByToken>,
+    PathModel(invitation): PathModel<InvitationByToken>,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<InvitationResponse>), AppError> {
     let invitation = service::accept_invitation(&state.db, invitation, auth.id).await?;
