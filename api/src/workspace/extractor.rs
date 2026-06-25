@@ -12,6 +12,11 @@ use entity::{WorkspaceBound, sea_orm_active_enums::WorkspaceRole};
 use entity::workspace;
 use sea_orm::{ColumnTrait, QueryFilter};
 
+#[derive(serde::Deserialize)]
+struct WorkspaceSlugParam {
+    workspace_slug: String,
+}
+
 pub struct ActiveWorkspace {
     pub auth: AuthenticatedUser,
     pub workspace: workspace::Model,
@@ -31,7 +36,7 @@ impl FromRequestParts<AppState> for ActiveWorkspace {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let Path(workspace_slug): Path<String> = Path::from_request_parts(parts, state)
+        let Path(WorkspaceSlugParam { workspace_slug }) = Path::from_request_parts(parts, state)
             .await
             .map_err(|_| AppError::BadRequest("Missing workspace slug".into()))?;
 

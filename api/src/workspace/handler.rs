@@ -6,11 +6,11 @@ use crate::{
     assign_patch,
     auth::AuthenticatedUser,
     core::{error::AppError, state::AppState},
-    shared::{DbErrExt, ValidatedJson, resolve_v7_id},
+    shared::{DbErrExt, PathModelLookup, ValidatedJson, resolve_v7_id},
     workspace::{
         WorkspaceModerator, WorkspaceOwner,
         dto::{CreateInvitationRequest, InvitationResponse, UpdateWorkspaceRequest},
-        service,
+        ext, service,
     },
 };
 use axum::{Json, extract::State, http::StatusCode};
@@ -208,7 +208,7 @@ pub async fn current_workspace(
 #[utoipa::path(
     post,
     path = "/{workspace_slug}/invite",
-    tag = "Invitation",
+    tag = "Workspace",
     summary = "Send invitation",
     params(
         ("workspace_slug" = String, Path, description = "The slug of the workspace", example = "my-workspace"),
@@ -222,8 +222,8 @@ pub async fn current_workspace(
     )
 )]
 pub async fn send_invitation(
-    State(state): State<AppState>,
     WorkspaceModerator(aw): WorkspaceModerator,
+    State(state): State<AppState>,
     Json(payload): Json<CreateInvitationRequest>,
 ) -> Result<(StatusCode, Json<InvitationResponse>), AppError> {
     let invitation = service::create_invitation(
@@ -247,4 +247,30 @@ pub async fn send_invitation(
     });
 
     Ok((StatusCode::CREATED, Json(invitation.into())))
+}
+
+#[utoipa::path(
+    post,
+    path = "/invitations/{token}",
+    tag = "Invitation",
+    summary = "Accept invitation",
+    params(
+        ("token" = uuid::Uuid, Path, description = "The invitation token", example = "00000000-0000-0000-0000-000000000000"),
+    ),
+    responses(
+        (status = 200, description = "Invitation accepted", body = InvitationResponse),
+        (status = 404, description = "Invitation not found"),
+        (status = 400, description = "Invalid token or invitation already accepted"),
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn accept_invitation(
+    auth: AuthenticatedUser,
+    PathModelLookup(invitation): PathModelLookup<ext::InvitationByToken>,
+    State(state): State<AppState>,
+) -> Result<(StatusCode, Json<InvitationResponse>), AppError> {
+    let invitation = service::accept_invitation(&state.db, invitation, auth.id).await?;
+    Ok((StatusCode::OK, Json(invitation.into())))
 }
