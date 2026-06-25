@@ -10,6 +10,7 @@ use super::jwt::{AccessClaims, verify_token};
 use crate::core::error::AppError;
 use crate::core::state::AppState;
 
+#[derive(Clone)]
 pub struct AuthenticatedUser {
     pub id: Uuid,
     pub role: UserRole,
@@ -22,6 +23,10 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
+        if let Some(auth) = parts.extensions.get::<AuthenticatedUser>().cloned() {
+            return Ok(auth);
+        }
+
         let TypedHeader(Authorization(bearer)) = parts
             .extract::<TypedHeader<Authorization<Bearer>>>()
             .await

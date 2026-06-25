@@ -12,6 +12,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         ))
         .routes(routes!(handler::current_workspace))
         .routes(routes!(handler::send_invitation))
+        .routes(routes!(handler::resend_invitation))
         .routes(routes!(
             handler::accept_invitation,
             handler::preview_invitation

@@ -10,13 +10,13 @@ use axum::{
 use entity::{WorkspaceBound, sea_orm_active_enums::WorkspaceRole};
 
 use entity::workspace;
-use sea_orm::{ColumnTrait, QueryFilter};
 
 #[derive(serde::Deserialize)]
 struct WorkspaceSlugParam {
     workspace_slug: String,
 }
 
+#[derive(Clone)]
 pub struct ActiveWorkspace {
     pub auth: AuthenticatedUser,
     pub workspace: workspace::Model,
@@ -25,7 +25,7 @@ pub struct ActiveWorkspace {
 
 impl ActiveWorkspace {
     pub fn bound_query<E: WorkspaceBound>(&self) -> sea_orm::Select<E> {
-        E::find().filter(E::workspace_column().eq(self.workspace.id))
+        E::find_by_workspace(self.workspace.id)
     }
 }
 
@@ -36,6 +36,10 @@ impl FromRequestParts<AppState> for ActiveWorkspace {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
+        if let Some(aw) = parts.extensions.get::<ActiveWorkspace>().cloned() {
+            return Ok(aw);
+        }
+
         let Path(WorkspaceSlugParam { workspace_slug }) = Path::from_request_parts(parts, state)
             .await
             .map_err(|_| AppError::BadRequest("Missing workspace slug".into()))?;

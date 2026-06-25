@@ -1,47 +1,6 @@
 use sea_orm::SqlErr;
-use serde::de::DeserializeOwned;
 
 use crate::core::error::AppError;
-
-/// Instructions for how to lookup an entity by a path param.
-///
-/// Implement this trait on a MARKER TYPE (ZST), NOT on an Entity.
-///
-/// # Example
-/// ```ignore
-/// pub struct ByToken;
-///
-/// impl ColumnLookup<workspace_invitation::Entity> for ByToken {
-///     type Entity = workspace_invitation::Entity;
-///     type ValueType = Uuid;
-///
-///     fn column() -> workspace_invitation::Column {
-///         workspace_invitation::Column::Token
-///     }
-///
-///     fn param_name() -> &'static str {
-///         "token"
-///     }
-/// }
-/// ```
-///
-/// Or quickly implement [`ColumnLookup`] by using the [`column_lookup`] macro.
-///
-/// ```ignore
-/// column_lookup!(
-///     ByToken => workspace_invitation::Entity {
-///         column: workspace_invitation::Column::Token,
-///         value_type: Uuid,
-///         param: "token",
-///     }
-/// );
-/// ```
-pub trait ColumnLookup {
-    type Entity: sea_orm::EntityTrait;
-    type ValueType: DeserializeOwned + Into<sea_orm::Value> + Send + Sync;
-    fn column() -> <Self::Entity as sea_orm::EntityTrait>::Column;
-    fn param_name() -> &'static str;
-}
 
 pub trait DbErrExt<T> {
     /// Mapping unique constraint violations to [`AppError::BadRequest`]
