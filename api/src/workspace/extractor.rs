@@ -24,6 +24,17 @@ pub struct ActiveWorkspace {
 }
 
 impl ActiveWorkspace {
+    /// Returns a query builder for entities that implement [`WorkspaceBound`]
+    ///
+    /// Example:
+    /// ```no_run
+    /// use entity::workspace_membership;
+    ///
+    /// let members = aw
+    ///     .bound_query::<workspace_membership::Entity>()
+    ///     .all(&state.db)
+    ///     .await?;
+    /// ```
     pub fn bound_query<E: WorkspaceBound>(&self) -> sea_orm::Select<E> {
         E::find_by_workspace(self.workspace.id)
     }

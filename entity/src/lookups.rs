@@ -54,6 +54,13 @@ macro_rules! define_lookups {
         ),* $(,)?
     ) => {
         $(
+            #[doc = concat!(
+                "Extactor for auto-query `", stringify!($module), "`\n",
+                "\n",
+                "- **Path Parameter:** `/{", $param_name, "}/`\n",
+                "- **Param type:** `", stringify!($val_type), "`\n",
+                "- **The column:** `", stringify!($column), "`"
+            )]
             pub struct $struct_name;
             impl $crate::ColumnLookup for $struct_name {
                 type Entity = crate::models::$module::Entity;
