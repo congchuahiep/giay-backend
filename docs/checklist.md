@@ -1,6 +1,5 @@
 Plan đơn giản ^^
 
-
 # Workspace
 
 - [x] **Migrations #1**
@@ -28,8 +27,10 @@ Plan đơn giản ^^
     - [x] API để gửi lại lời mời.
     - [x] API huỷ lời mời (Cancel Invitation).
 - [ ] **API Quản lý thành viên trong workspace**
-    - [ ] Xoá thành viên khỏi workspace.
-    - [ ] API cập nhật thông tin thành viên trong workspace.
+    - [ ] API Xem danh sách thành viên
+    - [ ] API Đuổi thành viên khỏi workspace.
+    - [ ] API Cập nhật thông tin thành viên trong workspace.
+    - [ ] API Tự rời khỏi workspace
 
 # Auth
 

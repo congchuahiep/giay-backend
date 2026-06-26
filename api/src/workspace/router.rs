@@ -1,4 +1,4 @@
-use super::{invitation, workspace};
+use super::{workspace, invitation, membership};
 use crate::core::state::AppState;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
@@ -26,4 +26,7 @@ pub fn router() -> OpenApiRouter<AppState> {
             invitation::handler::accept_invitation,
             invitation::handler::preview_invitation
         ))
+        
+        // Membership
+        .routes(routes!(membership::handler::list_members))
 }
