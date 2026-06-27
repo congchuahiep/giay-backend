@@ -164,7 +164,7 @@ pub async fn delete_workspace(
 
     deleted_workspace.update(&state.db).await?;
 
-    return Ok(StatusCode::NO_CONTENT);
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(

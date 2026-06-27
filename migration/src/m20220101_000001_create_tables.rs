@@ -87,6 +87,15 @@ impl MigrationTrait for Migration {
         .await?;
 
         db.execute_unprepared(
+            r#"
+            CREATE UNIQUE INDEX idx_workspace_single_owner
+            ON workspace_membership (workspace_id)
+            WHERE role = 'owner';
+            "#,
+        )
+        .await?;
+
+        db.execute_unprepared(
             /* sql */
             r#"
             CREATE TABLE workspace_invitation (

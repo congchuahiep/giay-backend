@@ -19,6 +19,12 @@ pub async fn create_invitation(
     email: &str,
     role: WorkspaceRole,
 ) -> Result<workspace_invitation::Model, AppError> {
+    if role == WorkspaceRole::Owner {
+        return Err(AppError::BadRequest(
+            "Cannot invite a user as an Owner. Ownership must be transferred to an existing member.".into(),
+        ));
+    }
+
     workspace_membership::Entity::find_by_workspace(workspace_id)
         .join(
             JoinType::InnerJoin,
@@ -64,6 +70,12 @@ pub async fn resend_invitation(
     invitation: workspace_invitation::Model,
     new_role: Option<WorkspaceRole>,
 ) -> Result<workspace_invitation::Model, AppError> {
+    if new_role == Some(WorkspaceRole::Owner) {
+        return Err(AppError::BadRequest(
+            "Cannot invite a user as an Owner. Ownership must be transferred to an existing member.".into(),
+        ));
+    }
+
     let status = InvitationStatus::from_invitation(&invitation);
 
     match status {
@@ -102,7 +114,7 @@ pub async fn accept_invitation(
     let user = user::Entity::find_by_id(user_id)
         .one(&txn)
         .await?
-        .map_or(Err(AppError::NotFound), |user| Ok(user))?;
+        .ok_or(AppError::NotFound)?;
 
     if user.email.to_lowercase() != invitation.email.to_lowercase() {
         return Err(AppError::BadRequest(
@@ -129,7 +141,7 @@ pub async fn accept_invitation(
 
     txn.commit().await?;
 
-    return Ok(invitation.into());
+    Ok(invitation.into())
 }
 
 pub async fn revoke_invitation(

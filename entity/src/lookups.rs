@@ -80,5 +80,7 @@ define_lookups! {
     WorkspaceBySlug => workspace { Slug: String = "workspace_slug" },
     InvitationByToken => workspace_invitation { Token: uuid::Uuid = "token" },
     InvitationById => workspace_invitation { Id: uuid::Uuid = "invitation_id" },
+    MembershipByUserId => workspace_membership { UserId: uuid::Uuid = "user_id" },
+    UserById => user { Id: uuid::Uuid = "user_id" },
     UserByEmail => user { Email: String = "email" },
 }

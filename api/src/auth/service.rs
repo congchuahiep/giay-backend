@@ -13,7 +13,7 @@ use uuid::Uuid;
 /// Hàm này thực hiện hai nhiệm vụ chính:
 /// 1. Tạo JWT Access Token (thời hạn ngắn) dùng để xác thực các request.
 /// 2. Tạo Refresh Token (thời hạn dài) và lưu thông tin phiên bản (session) xuống cơ sở dữ liệu để
-/// quản lý.
+///    quản lý.
 ///
 /// # Errors
 ///
@@ -55,7 +55,6 @@ pub async fn issue_tokens(
         id: Set(refresh_jti),
         user_id: Set(user.id),
         expires_at: Set(exp_refresh.fixed_offset()),
-        ..Default::default()
     }
     .insert(db)
     .await

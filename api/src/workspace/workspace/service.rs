@@ -34,12 +34,11 @@ pub async fn resolve_workspace_context(
 
     let cached: Option<String> = redis.get(&cache_key).await.unwrap_or(None);
 
-    if let Some(json_str) = cached {
-        if let Ok(ctx) =
+    if let Some(json_str) = cached
+        && let Ok(ctx) =
             serde_json::from_str::<(workspace::Model, Option<WorkspaceRole>)>(&json_str)
-        {
-            return Ok(ctx);
-        }
+    {
+        return Ok(ctx);
     }
 
     let user_id_val = *user_id;

@@ -15,3 +15,9 @@ pub struct MemberResponse {
     #[schema(value_type = String)]
     pub joined_at: Option<chrono::DateTime<chrono::FixedOffset>>,
 }
+
+#[derive(serde::Deserialize, ToSchema)]
+pub struct UpdateMemberRoleRequest {
+    #[schema(value_type = String, example = "moderator")]
+    pub role: WorkspaceRole,
+}
