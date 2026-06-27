@@ -29,4 +29,9 @@ pub fn router() -> OpenApiRouter<AppState> {
         
         // Membership
         .routes(routes!(membership::handler::list_members))
+        .routes(routes!(
+            membership::handler::update_member_role,
+            membership::handler::remove_member,
+        ))
+        .routes(routes!(membership::handler::leave_workspace))
 }

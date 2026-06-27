@@ -60,14 +60,18 @@ pub async fn send_invitation(
     .await?;
 
     let mailer = state.mailer.clone();
+
     tokio::spawn(async move {
-        let _ = mailer
+        if let Err(e) = mailer
             .send_invitation(
                 &payload.email,
                 &aw.workspace.name,
                 &invitation.token.to_string(),
             )
-            .await;
+            .await
+        {
+            tracing::error!("Failed to send invitation email: {}", e);
+        }
     });
 
     Ok((StatusCode::CREATED, Json(invitation.into())))
