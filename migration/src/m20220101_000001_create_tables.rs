@@ -37,18 +37,6 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             /* sql */
             r#"
-            CREATE TABLE "user_session" (
-                id UUID PRIMARY KEY,
-                user_id UUID NOT NULL,
-                expires_at TIMESTAMP WITH TIME ZONE NOT NULL
-            );
-            "#,
-        )
-        .await?;
-
-        db.execute_unprepared(
-            /* sql */
-            r#"
             CREATE TABLE workspace (
                 id UUID PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -129,7 +117,6 @@ impl MigrationTrait for Migration {
             DROP TABLE IF EXISTS workspace_membership;
             DROP TYPE IF EXISTS workspace_role;
             DROP TABLE IF EXISTS workspace;
-            DROP TABLE IF EXISTS user_session;
             DROP TABLE IF EXISTS "user";
             DROP TYPE IF EXISTS user_role;
             DROP TABLE IF EXISTS "workspace_invitation";

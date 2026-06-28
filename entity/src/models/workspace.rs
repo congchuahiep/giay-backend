@@ -32,7 +32,7 @@ pub enum Relation {
     User,
     #[sea_orm(has_many = "super::workspace_invitation::Entity")]
     WorkspaceInvitation,
-    #[sea_orm(has_many = "super::workspace_membership::Entity")]
+    #[sea_orm(has_one = "super::workspace_membership::Entity")]
     WorkspaceMembership,
 }
 

@@ -5,15 +5,20 @@ use super::{
 use crate::core::error::AppError;
 use chrono::{Duration, Utc};
 use jsonwebtoken::EncodingKey;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, Set};
+use redis::{AsyncTypedCommands, aio::MultiplexedConnection};
+use tracing::error;
 use uuid::Uuid;
+
+#[inline]
+pub fn session_cache_key(jti: &uuid::Uuid) -> String {
+    format!("session:{}", jti)
+}
 
 /// Phát hành một cặp Access Token và Refresh Token mới cho người dùng.
 ///
 /// Hàm này thực hiện hai nhiệm vụ chính:
 /// 1. Tạo JWT Access Token (thời hạn ngắn) dùng để xác thực các request.
-/// 2. Tạo Refresh Token (thời hạn dài) và lưu thông tin phiên bản (session) xuống cơ sở dữ liệu để
-///    quản lý.
+/// 2. Tạo Refresh Token (thời hạn dài) và lưu thông tin phiên bản (session) xuống Redis.
 ///
 /// # Errors
 ///
@@ -21,8 +26,8 @@ use uuid::Uuid;
 /// * Xảy ra lỗi trong quá trình mã hóa (encode) chuỗi JWT.
 /// * Không thể lưu thông tin phiên bản Refresh Token mới vào cơ sở dữ liệu.
 pub async fn issue_tokens(
+    redis: &mut MultiplexedConnection,
     user: &entity::user::Model,
-    db: &DatabaseConnection,
     jwt_secret: &str,
 ) -> Result<TokenResponse, AppError> {
     let now = Utc::now();
@@ -51,14 +56,19 @@ pub async fn issue_tokens(
         &encoding_key,
     )?;
 
-    entity::user_session::ActiveModel {
-        id: Set(refresh_jti),
-        user_id: Set(user.id),
-        expires_at: Set(exp_refresh.fixed_offset()),
+    let cache_key = session_cache_key(&refresh_jti);
+    if let Err(e) = redis
+        .set_ex(cache_key, user.id.to_string(), 7 * 24 * 60 * 60)
+        .await
+    {
+        error!(
+            "Failed to cache refresh token for: {} \n {}",
+            refresh_jti, e
+        );
+        return Err(AppError::InternalServerError(anyhow::anyhow!(
+            "Failed to cache refresh token"
+        )));
     }
-    .insert(db)
-    .await
-    .map_err(|_| AppError::InternalServerError(anyhow::anyhow!("Lỗi lưu refresh token")))?;
 
     Ok(TokenResponse {
         access_token,

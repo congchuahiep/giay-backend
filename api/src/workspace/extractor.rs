@@ -57,8 +57,6 @@ impl FromRequestParts<AppState> for ActiveWorkspace {
 
         let auth = AuthenticatedUser::from_request_parts(parts, state).await?;
 
-        // Cache check (optional, có thể thêm Redis sau)
-        // Query workspace + membership trong 1 câu (JOIN)
         let (workspace, user_role_opt) = service::resolve_workspace_context(
             &state.db,
             &mut state.redis.clone(),

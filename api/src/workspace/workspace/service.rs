@@ -24,6 +24,7 @@ pub struct WorkspaceQueryResult {
     pub user_role: Option<WorkspaceRole>,
 }
 
+/// Resolves the workspace context for a given slug and user ID, optionally using Redis cache.
 pub async fn resolve_workspace_context(
     database: &DatabaseConnection,
     redis: &mut MultiplexedConnection,
@@ -76,13 +77,13 @@ pub async fn resolve_workspace_context(
         data.user_role,
     );
 
-    if let Ok(json) = serde_json::to_string(&result) {
-        let _ = redis.set_ex(&cache_key, json, 300).await.inspect_err(|e| {
-            error!(
-                "Failed to cache workspace context for: {} \n {}",
-                cache_key, e
-            )
-        });
+    if let Ok(json) = serde_json::to_string(&result)
+        && let Err(e) = redis.set_ex(&cache_key, json, 300).await
+    {
+        error!(
+            "Failed to cache workspace context for: {} \n {}",
+            cache_key, e
+        )
     }
 
     Ok(result)

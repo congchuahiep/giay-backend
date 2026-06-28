@@ -13,6 +13,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
+use redis::AsyncTypedCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde_json::json;
 use uuid::Uuid;
@@ -40,7 +41,8 @@ pub async fn login(
 
     password::verify_password(payload.password.clone(), user.password.clone()).await?;
 
-    let token_response = service::issue_tokens(&user, &state.db, &state.jwt_secret).await?;
+    let token_response =
+        service::issue_tokens(&mut state.redis.clone(), &user, &state.jwt_secret).await?;
     Ok((StatusCode::OK, Json(token_response)))
 }
 
@@ -75,7 +77,8 @@ pub async fn register(
         "This email is already registered, please use a different email!",
     )])?;
 
-    let token_response = service::issue_tokens(&user, &state.db, &state.jwt_secret).await?;
+    let token_response =
+        service::issue_tokens(&mut state.redis.clone(), &user, &state.jwt_secret).await?;
     Ok((StatusCode::CREATED, Json(token_response)))
 }
 
@@ -98,13 +101,22 @@ pub async fn refresh_token(
 
     // Kiểm tra xem phiên đăng nhập có tồn tại không bằng cách xoá phiên đăng nhập cũ trước đó
     // nếu xoá được thì trước đó có phiên đăng nhập hợp lệ thật!
-    if entity::user_session::Entity::delete_by_id(claims.jti)
-        .exec(&state.db)
-        .await?
-        .rows_affected
-        == 0
-    {
-        return Err(AppError::Unauthorized);
+    let cache_key = service::session_cache_key(&claims.jti);
+    let mut redis = state.redis.clone();
+
+    match redis.get(&cache_key).await.unwrap_or(None) {
+        Some(saved_id) => {
+            if saved_id != claims.sub.to_string() {
+                return Err(AppError::Unauthorized);
+            }
+            if let Err(e) = redis.del(&cache_key).await {
+                tracing::error!("Failed to delete cache: {}", e);
+                return Err(AppError::InternalServerError(e.into()));
+            }
+        }
+        None => {
+            return Err(AppError::Unauthorized);
+        }
     }
 
     let user = entity::user::Entity::find_by_id(claims.sub)
@@ -112,7 +124,7 @@ pub async fn refresh_token(
         .await?
         .ok_or(AppError::Unauthorized)?;
 
-    let token_response = service::issue_tokens(&user, &state.db, &state.jwt_secret).await?;
+    let token_response = service::issue_tokens(&mut redis, &user, &state.jwt_secret).await?;
     Ok((StatusCode::OK, Json(token_response)))
 }
 
@@ -132,9 +144,12 @@ pub async fn logout(
 ) -> Result<(StatusCode, Json<serde_json::Value>), AppError> {
     let claims: RefreshClaims = verify_token(&payload.refresh_token, &state.jwt_secret)?;
 
-    entity::user_session::Entity::delete_by_id(claims.jti)
-        .exec(&state.db)
-        .await?;
+    let cache_key = service::session_cache_key(&claims.jti);
+    let mut redis = state.redis.clone();
+
+    if let Err(e) = redis.del(&cache_key).await {
+        tracing::error!("Failed to delete cache: {}", e);
+    }
 
     Ok((
         StatusCode::OK,
@@ -164,12 +179,18 @@ pub async fn revoke_token(
     State(state): State<AppState>,
     Path(session_id): Path<Uuid>,
 ) -> Result<(), AppError> {
-    let result = entity::user_session::Entity::delete_by_id(session_id)
-        .exec(&state.db)
-        .await?;
+    let cache_key = service::session_cache_key(&session_id);
+    let mut redis = state.redis.clone();
 
-    if result.rows_affected == 0 {
-        return Err(AppError::NotFound);
+    match redis.del(&cache_key).await {
+        Ok(effected) if effected == 0 => {
+            return Err(AppError::NotFound);
+        }
+        Err(e) => {
+            tracing::error!("Failed to delete cache: {}", e);
+            return Err(AppError::InternalServerError(e.into()));
+        }
+        _ => {}
     }
 
     Ok(())
