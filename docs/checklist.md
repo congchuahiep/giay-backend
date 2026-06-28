@@ -26,15 +26,26 @@ Plan đơn giản ^^
     - [x] API để người được mời xem thông tin lời mời (public).
     - [x] API để gửi lại lời mời.
     - [x] API huỷ lời mời (Cancel Invitation).
-- [ ] **API Quản lý thành viên trong workspace**
+- [x] **API Quản lý thành viên trong workspace**
     - [x] API Xem danh sách thành viên
     - [x] API Đuổi thành viên khỏi workspace.
     - [x] API Cập nhật thông tin thành viên trong workspace.
     - [x] API Tự rời khỏi workspace
+- [ ] **Polish API**
+    - [ ] API Update workspace icon/logo
+    - [ ] API Chuyển nhượng quyền sở hữu workspace
 
 # Auth
 
-- [ ] Lưu trữ `user_session` bằng cache thay vì lưu trữ trực tiếp trong cơ sở dữ liệu.
+- [x] Lưu trữ `user_session` bằng cache thay vì lưu trữ trực tiếp trong cơ sở dữ liệu.
+- [ ] API Đổi mật khẩu
+- [ ] API Quên mật khẩu và đặt lại mật khẩu
+- [ ] API Xác thực Email
+
+# User
+
+- [ ] API Cập nhật Profile
+- [ ] API Tải ảnh đại diện
 
 # Page
 
