@@ -20,7 +20,7 @@ pub async fn run() -> anyhow::Result<()> {
 
     let state = AppState::new(&config).await?;
 
-    let app_router = router::build(state);
+    let app_router = router::build(state, &config);
     serve(app_router, config.socket_addr()?).await
 }
 

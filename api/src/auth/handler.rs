@@ -1,10 +1,10 @@
 use super::{
     dto::{LoginRequest, RefreshRequest, RegisterRequest, TokenResponse},
-    jwt::{RefreshClaims, verify_token},
-    password, service,
+    extractor::ExtractedRefreshToken,
+    jwt, password, service,
 };
 use crate::{
-    auth::AdminUser,
+    auth::{AdminUser, jwt::RefreshClaims},
     core::{error::AppError, state::AppState},
     shared::{DbErrExt, ValidatedJson},
 };
@@ -13,6 +13,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
+use axum_extra::extract::{CookieJar, cookie::Cookie};
 use redis::AsyncTypedCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde_json::json;
@@ -31,8 +32,9 @@ use uuid::Uuid;
 )]
 pub async fn login(
     State(state): State<AppState>,
+    jar: CookieJar,
     ValidatedJson(payload): ValidatedJson<LoginRequest>,
-) -> Result<(StatusCode, Json<TokenResponse>), AppError> {
+) -> Result<(StatusCode, CookieJar, Json<TokenResponse>), AppError> {
     let user = entity::user::Entity::find()
         .filter(entity::user::Column::Email.eq(payload.email))
         .one(&state.db)
@@ -43,7 +45,18 @@ pub async fn login(
 
     let token_response =
         service::issue_tokens(&mut state.redis.clone(), &user, &state.jwt_secret).await?;
-    Ok((StatusCode::OK, Json(token_response)))
+
+    let (access_cookie, refresh_cookie) = jwt::build_cookies(
+        token_response.access_token.clone(),
+        token_response.refresh_token.clone(),
+        state.cookie_secure,
+    );
+
+    Ok((
+        StatusCode::OK,
+        jar.add(access_cookie).add(refresh_cookie),
+        Json(token_response),
+    ))
 }
 
 #[utoipa::path(
@@ -95,9 +108,11 @@ pub async fn register(
 )]
 pub async fn refresh_token(
     State(state): State<AppState>,
-    Json(payload): Json<RefreshRequest>,
-) -> Result<(StatusCode, Json<TokenResponse>), AppError> {
-    let claims: RefreshClaims = verify_token(&payload.refresh_token, &state.jwt_secret)?;
+    jar: CookieJar,
+    ExtractedRefreshToken(token_opt): ExtractedRefreshToken,
+) -> Result<(StatusCode, CookieJar, Json<TokenResponse>), AppError> {
+    let token = token_opt.ok_or(AppError::Unauthorized)?;
+    let claims: jwt::RefreshClaims = jwt::verify_token(&token, &state.jwt_secret)?;
 
     // Kiểm tra xem phiên đăng nhập có tồn tại không bằng cách xoá phiên đăng nhập cũ trước đó
     // nếu xoá được thì trước đó có phiên đăng nhập hợp lệ thật!
@@ -125,7 +140,17 @@ pub async fn refresh_token(
         .ok_or(AppError::Unauthorized)?;
 
     let token_response = service::issue_tokens(&mut redis, &user, &state.jwt_secret).await?;
-    Ok((StatusCode::OK, Json(token_response)))
+    let (access_cookie, refresh_cookie) = jwt::build_cookies(
+        token_response.access_token.clone(),
+        token_response.refresh_token.clone(),
+        state.cookie_secure,
+    );
+
+    Ok((
+        StatusCode::OK,
+        jar.add(access_cookie).add(refresh_cookie),
+        Json(token_response),
+    ))
 }
 
 #[utoipa::path(
@@ -140,19 +165,30 @@ pub async fn refresh_token(
 )]
 pub async fn logout(
     State(state): State<AppState>,
-    Json(payload): Json<RefreshRequest>,
-) -> Result<(StatusCode, Json<serde_json::Value>), AppError> {
-    let claims: RefreshClaims = verify_token(&payload.refresh_token, &state.jwt_secret)?;
+    jar: CookieJar,
+    ExtractedRefreshToken(token_opt): ExtractedRefreshToken,
+) -> Result<(StatusCode, CookieJar, Json<serde_json::Value>), AppError> {
+    if let Some(t) = token_opt
+        && let Ok(claims) = jwt::verify_token::<RefreshClaims>(&t, &state.jwt_secret)
+    {
+        let cache_key = service::session_cache_key(&claims.jti);
+        let mut redis = state.redis.clone();
 
-    let cache_key = service::session_cache_key(&claims.jti);
-    let mut redis = state.redis.clone();
-
-    if let Err(e) = redis.del(&cache_key).await {
-        tracing::error!("Failed to delete cache: {}", e);
+        if let Err(e) = redis.del(&cache_key).await {
+            tracing::error!("Failed to delete cache: {}", e);
+        }
     }
+
+    let access_removal = Cookie::build(("access_token", "")).path("/").build();
+    let refresh_removal = Cookie::build(("refresh_token", ""))
+        .path("/api/auth")
+        .build();
+
+    let updated_jar = jar.remove(access_removal).remove(refresh_removal);
 
     Ok((
         StatusCode::OK,
+        updated_jar,
         Json(json!({ "message": "Logout successfully" })),
     ))
 }

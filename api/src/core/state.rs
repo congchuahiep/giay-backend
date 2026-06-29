@@ -10,6 +10,7 @@ pub struct AppState {
     pub redis: MultiplexedConnection,
     pub jwt_secret: String,
     pub mailer: Mailer,
+    pub cookie_secure: bool,
 }
 
 impl AppState {
@@ -32,6 +33,7 @@ impl AppState {
             redis,
             mailer,
             jwt_secret: config.jwt_secret.clone(),
+            cookie_secure: config.cookie_secure,
         })
     }
 }

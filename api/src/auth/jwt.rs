@@ -1,4 +1,5 @@
 use crate::core::error::AppError;
+use axum_extra::extract::cookie::{Cookie, SameSite};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use uuid::Uuid;
@@ -43,4 +44,27 @@ pub fn verify_token<T: DeserializeOwned>(token: &str, secret: &str) -> Result<T,
     })?;
 
     Ok(token_data.claims)
+}
+
+pub fn build_cookies(
+    access_token: String,
+    refresh_token: String,
+    is_secure: bool,
+) -> (Cookie<'static>, Cookie<'static>) {
+    let access_cookie = Cookie::build(("access_token", access_token))
+        .path("/")
+        .http_only(true)
+        .secure(is_secure)
+        .same_site(SameSite::Lax)
+        .build();
+
+    let refresh_cookie = Cookie::build(("refresh_token", refresh_token))
+        // Giới hạn Cookie này chỉ chạy tới endpoint refresh
+        .path("/api/auth")
+        .http_only(true)
+        .secure(is_secure)
+        .same_site(SameSite::Strict)
+        .build();
+
+    (access_cookie, refresh_cookie)
 }
