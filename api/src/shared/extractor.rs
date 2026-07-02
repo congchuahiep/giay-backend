@@ -162,16 +162,20 @@ where
             .await
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
-        // TODO: Sửa cái này để nó trả lỗi cho mỗi loại trường
+        // Lấy tất cả các lỗi của các trường và gom lại thành HashMap
         if let Err(errors) = value.validate() {
-            let error_message = errors
-                .field_errors()
-                .into_iter()
-                .next()
-                .map(|(_, errs)| errs[0].message.as_deref().unwrap_or("Invalid data"))
-                .unwrap_or("Invalid data");
+            let mut details = HashMap::new();
 
-            return Err(AppError::BadRequest(error_message.to_string()));
+            for (field, field_errors) in errors.field_errors() {
+                let msgs: Vec<String> = field_errors
+                    .iter()
+                    .map(|err| err.message.as_deref().unwrap_or("Invalid data").to_string())
+                    .collect();
+
+                details.insert(field.to_string(), msgs);
+            }
+
+            return Err(AppError::ValidationError(details));
         }
 
         Ok(ValidatedJson(value))

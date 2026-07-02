@@ -7,26 +7,44 @@ use serde_json::json;
 
 #[derive(thiserror::Error, Debug)]
 pub enum AppError {
-    #[error("Lỗi máy chủ nội bộ")]
+    #[error("There was an internal server error")]
     InternalServerError(#[from] anyhow::Error),
 
-    #[error("Không tìm thấy tài nguyên")]
+    #[error("Not found")]
     NotFound,
 
-    #[error("Bạn không có quyền truy cập")]
+    #[error("You are not authorized to access this resource")]
     Forbidden,
 
-    #[error("Bạn chưa đăng nhập")]
+    #[error("You are not logged in")]
     Unauthorized,
 
-    #[error("Email hoặc mật khẩu không đúng")]
+    #[error("Invalid credentials")]
     InvalidCredentials,
 
-    #[error("Phiên đăng nhập đã hết hạn")]
+    #[error("Token expired")]
     TokenExpired,
 
     #[error("{0}")]
     BadRequest(String),
+
+    #[error("The request body is invalid")]
+    ValidationError(std::collections::HashMap<String, Vec<String>>),
+}
+
+impl AppError {
+    pub fn error_code(&self) -> &'static str {
+        match self {
+            AppError::InternalServerError(_) => "INTERNAL_SERVER",
+            AppError::NotFound => "NOT_FOUND",
+            AppError::Forbidden => "FORBIDDEN",
+            AppError::Unauthorized => "UNAUTHORIZED",
+            AppError::InvalidCredentials => "INVALID_CREDENTIALS",
+            AppError::TokenExpired => "TOKEN_EXPIRED",
+            AppError::BadRequest(_) => "BAD_REQUEST",
+            AppError::ValidationError(_) => "VALIDATION",
+        }
+    }
 }
 
 impl IntoResponse for AppError {
@@ -41,12 +59,20 @@ impl IntoResponse for AppError {
             AppError::Forbidden => StatusCode::FORBIDDEN,
             AppError::InvalidCredentials => StatusCode::UNAUTHORIZED,
             AppError::TokenExpired => StatusCode::UNAUTHORIZED,
-            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            AppError::BadRequest(_) | AppError::ValidationError(_) => StatusCode::BAD_REQUEST,
         };
 
-        let body = Json(json!({
-            "error": self.to_string()
-        }));
+        let body = match &self {
+            AppError::ValidationError(details) => Json(json!({
+                "code": self.error_code(),
+                "message": self.to_string(),
+                "details": details
+            })),
+            _ => Json(json!({
+                "code": self.error_code(),
+                "message": self.to_string()
+            })),
+        };
 
         (status, body).into_response()
     }
