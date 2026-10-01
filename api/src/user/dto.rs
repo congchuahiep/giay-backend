@@ -1,10 +1,9 @@
-use entity::{sea_orm_active_enums::UserRole, user};
-use o2o::o2o;
+use entity::sea_orm_active_enums::UserRole;
+use sea_orm::FromQueryResult;
 use serde::Serialize;
 use utoipa::ToSchema;
 
-#[derive(Serialize, ToSchema, o2o)]
-#[from_owned(user::Model)]
+#[derive(Serialize, ToSchema, FromQueryResult)]
 pub struct UserResponse {
     pub id: uuid::Uuid,
     #[schema(example = "admin@workspace.com")]

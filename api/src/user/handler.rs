@@ -25,9 +25,10 @@ pub async fn me(
     auth: AuthenticatedUser,
 ) -> Result<Json<UserResponse>, AppError> {
     let user = user::Entity::find_by_id(auth.id)
+        .into_model::<UserResponse>()
         .one(&state.db)
         .await?
         .ok_or(AppError::Unauthorized)?;
 
-    Ok(Json(user.into()))
+    Ok(Json(user))
 }

@@ -35,17 +35,18 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
         }
 
         // Kiểm tra token trong cookie (trường hợp sử dụng webapp) hoặc header (trường hợp sử dụng
-        // API/Tauri desktop app)
-        let jar = CookieJar::from_request_parts(parts, state)
-            .await
-            .map_err(|_| AppError::Unauthorized)?;
-        let mut token = jar.get("access_token").map(|c| c.value().to_string());
+        // API/Tauri desktop app). Ưu tiên header trước
+        let mut token = None;
+        if let Ok(TypedHeader(Authorization(bearer))) =
+            parts.extract::<TypedHeader<Authorization<Bearer>>>().await
+        {
+            token = Some(bearer.token().to_string());
+        }
         if token.is_none() {
-            if let Ok(TypedHeader(Authorization(bearer))) =
-                parts.extract::<TypedHeader<Authorization<Bearer>>>().await
-            {
-                token = Some(bearer.token().to_string());
-            }
+            let jar = CookieJar::from_request_parts(parts, state)
+                .await
+                .map_err(|_| AppError::Unauthorized)?;
+            token = jar.get("access_token").map(|c| c.value().to_string());
         }
 
         let token_str = token.ok_or(AppError::Unauthorized)?;
