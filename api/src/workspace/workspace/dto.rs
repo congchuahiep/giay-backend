@@ -10,6 +10,7 @@ use validator::Validate;
 static SLUG_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-z0-9-]+$").unwrap());
 
 #[derive(Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateWorkspaceRequest {
     pub id: Option<uuid::Uuid>,
     #[schema(example = "My Team Workspace")]
@@ -26,6 +27,7 @@ pub struct CreateWorkspaceRequest {
 }
 
 #[derive(Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateWorkspaceRequest {
     #[schema(example = "My Team Workspace")]
     #[validate(length(min = 1, message = "Cannot be empty"))]
@@ -43,6 +45,7 @@ pub struct UpdateWorkspaceRequest {
 
 #[derive(Serialize, ToSchema, o2o)]
 #[from_owned(workspace::Model)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkspaceResponse {
     pub id: uuid::Uuid,
     #[schema(example = "My Workspace")]
@@ -60,6 +63,7 @@ pub struct WorkspaceResponse {
 
 #[derive(Serialize, ToSchema, o2o)]
 #[from_owned(extractor::ActiveWorkspace)]
+#[serde(rename_all = "camelCase")]
 pub struct ActiveWorkspaceResponse {
     #[from(~.into())]
     pub workspace: WorkspaceResponse,

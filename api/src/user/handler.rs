@@ -12,7 +12,7 @@ use sea_orm::EntityTrait;
     path = "/me",
     tag = "User",
     responses(
-        (status = 200, description = "Lấy thông tin người dùng thành công"),
+        (status = 200, description = "Lấy thông tin người dùng thành công", body = UserResponse),
         (status = 404, description = "Không tìm thấy người dùng"),
         (status = 500, description = "Lỗi server nội bộ"),
     ),

@@ -14,13 +14,20 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use crate::core::{config::Config, state::AppState};
 
-pub fn build(state: AppState, config: &Config) -> Router {
+pub fn build_parts() -> (axum::Router<AppState>, utoipa::openapi::OpenApi) {
     let (router, api) = utoipa_axum::router::OpenApiRouter::new()
         .nest("/api/auth", crate::auth::router())
         .nest("/api/user", crate::user::router())
         .nest("/api/workspace", crate::workspace::router())
         .split_for_parts();
 
+    let mut openapi = crate::core::swagger::ApiDoc::openapi();
+    openapi.merge(api);
+
+    (router, openapi)
+}
+
+pub fn build(state: AppState, config: &Config) -> Router {
     let origins: Vec<HeaderValue> = config
         .cors_origins
         .iter()
@@ -40,8 +47,7 @@ pub fn build(state: AppState, config: &Config) -> Router {
         .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
         .allow_credentials(true);
 
-    let mut openapi = crate::core::swagger::ApiDoc::openapi();
-    openapi.merge(api);
+    let (router, openapi) = build_parts();
 
     router
         .merge(SwaggerUi::new("/swagger").url("/api-docs/openapi.json", openapi))
@@ -63,4 +69,18 @@ pub fn build(state: AppState, config: &Config) -> Router {
 
 async fn health() -> Json<Value> {
     Json(json!({ "ok": true }))
+}
+
+#[cfg(test)]
+mod tests {
+    /// Dump `openapi.json` cho client codegen (openapi-typescript), không cần chạy server.
+    /// Chạy: `cargo test -p giay-api dump_openapi`
+    #[test]
+    fn dump_openapi() {
+        let json = super::build_parts()
+            .1
+            .to_pretty_json()
+            .expect("Failed to serialize OpenApi");
+        std::fs::write("openapi.json", json).expect("Failed to write openapi.json");
+    }
 }

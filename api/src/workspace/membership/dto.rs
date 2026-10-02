@@ -5,6 +5,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 #[derive(Serialize, ToSchema, FromQueryResult)]
+#[serde(rename_all = "camelCase")]
 pub struct MemberResponse {
     pub id: Uuid,
     pub email: String,
@@ -17,6 +18,7 @@ pub struct MemberResponse {
 }
 
 #[derive(serde::Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateMemberRoleRequest {
     #[schema(value_type = String, example = "moderator")]
     pub role: WorkspaceRole,

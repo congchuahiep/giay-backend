@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 use validator::Validate;
 
 #[derive(Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateInvitationRequest {
     #[schema(example = "colleague@example.com")]
     #[validate(email(message = "Invalid email format"))]
@@ -19,6 +20,7 @@ pub struct CreateInvitationRequest {
 
 #[derive(Serialize, ToSchema, o2o)]
 #[from_owned(workspace_invitation::Model)]
+#[serde(rename_all = "camelCase")]
 pub struct InvitationResponse {
     pub id: uuid::Uuid,
     pub workspace_id: uuid::Uuid,
@@ -37,6 +39,7 @@ pub struct InvitationResponse {
 }
 
 #[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct InvitationPreviewResponse {
     #[schema(example = "My Workspace")]
     pub workspace_name: String,

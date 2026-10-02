@@ -3,6 +3,7 @@ use utoipa::ToSchema;
 use validator::Validate;
 
 #[derive(Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct LoginRequest {
     #[schema(example = "admin@workspace.com")]
     #[validate(email(message = "Invalid email address"))]
@@ -14,6 +15,7 @@ pub struct LoginRequest {
 }
 
 #[derive(Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct RegisterRequest {
     #[schema(example = "admin@workspace.com")]
     #[validate(email(message = "Invalid email address"))]
@@ -33,6 +35,7 @@ pub struct RegisterRequest {
 }
 
 #[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct TokenResponse {
     pub access_token: String,
     pub refresh_token: String,
@@ -41,6 +44,7 @@ pub struct TokenResponse {
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RefreshRequest {
     pub refresh_token: String,
 }
